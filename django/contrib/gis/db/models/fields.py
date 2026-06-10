@@ -4,13 +4,18 @@ from django.contrib.gis import forms, gdal
 from django.contrib.gis.db.models.proxy import SpatialProxy
 from django.contrib.gis.gdal.error import GDALException
 from django.contrib.gis.geos import (
+    CircularString,
+    CompoundCurve,
+    CurvePolygon,
     GeometryCollection,
     GEOSException,
     GEOSGeometry,
     LineString,
+    MultiCurve,
     MultiLineString,
     MultiPoint,
     MultiPolygon,
+    MultiSurface,
     Point,
     Polygon,
 )
@@ -371,6 +376,41 @@ class GeometryCollectionField(GeometryField):
     geom_class = GeometryCollection
     form_class = forms.GeometryCollectionField
     description = _("Geometry collection")
+
+
+class CircularStringField(GeometryField):
+    geom_type = "CIRCULARSTRING"
+    geom_class = CircularString
+    form_class = forms.CircularStringField
+    description = _("Circular string")
+
+
+class CompoundCurveField(GeometryField):
+    geom_type = "COMPOUNDCURVE"
+    geom_class = CompoundCurve
+    form_class = forms.CompoundCurveField
+    description = _("Compound curve")
+
+
+class CurvePolygonField(GeometryField):
+    geom_type = "CURVEPOLYGON"
+    geom_class = CurvePolygon
+    form_class = forms.CurvePolygonField
+    description = _("Curve polygon")
+
+
+class MultiCurveField(GeometryField):
+    geom_type = "MULTICURVE"
+    geom_class = MultiCurve
+    form_class = forms.MultiCurveField
+    description = _("Multi curve")
+
+
+class MultiSurfaceField(GeometryField):
+    geom_type = "MULTISURFACE"
+    geom_class = MultiSurface
+    form_class = forms.MultiSurfaceField
+    description = _("Multi surface")
 
 
 class ExtentField(Field):
