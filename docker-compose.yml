@@ -1,0 +1,50 @@
+services:
+  django:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        PYTHON_VERSION: "${PYTHON_VERSION:-3.13}"
+        UV_VERSION: "${UV_VERSION:-0.8.3}"
+        USER_ID: "${USER_ID:-1000}"
+        GROUP_ID: "${GROUP_ID:-1000}"
+
+    working_dir: /workspace
+
+    volumes:
+      # Django source tree.
+      - type: bind
+        source: .
+        target: /workspace
+
+      # Keep uv downloads outside the source tree.
+      - type: volume
+        source: django-uv-cache
+        target: /home/django/.cache/uv
+
+      # Avoid storing the Linux virtual environment on a macOS or Windows
+      # bind mount.
+      - type: volume
+        source: django-venv
+        target: /workspace/.venv
+
+    environment:
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+      UV_CACHE_DIR: /home/django/.cache/uv
+      UV_PROJECT_ENVIRONMENT: /workspace/.venv
+      UV_LINK_MODE: copy
+
+    # This repository is the Django framework itself, not a Django project, so
+    # there is no manage.py to run. Keep the development container open by
+    # default. Override this command to run tests, for example:
+    # docker compose run --rm django python tests/runtests.py auth_tests
+    command: bash
+
+    init: true
+    stdin_open: true
+    tty: true
+
+volumes:
+  django-uv-cache:
+  django-venv:
