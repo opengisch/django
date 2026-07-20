@@ -6,7 +6,7 @@ cd /workspace
 
 VENV_PATH="${UV_PROJECT_ENVIRONMENT:-/workspace/.venv}"
 UV_CACHE_PATH="${UV_CACHE_DIR:-/home/django/.cache/uv}"
-INSTALL_MARKER="${VENV_PATH}/.django-dev-dependencies-installed"
+UV_VENV_CLEAR=1
 
 mkdir -p "${UV_CACHE_PATH}"
 
@@ -22,19 +22,18 @@ if [[ ! -f "${VENV_PATH}/pyvenv.cfg" ]]; then
     uv venv "${VENV_PATH}"
 fi
 
-if [[ ! -f "${INSTALL_MARKER}" ]]; then
-    echo "Installing Django and test dependencies..."
+# uv skips packages that already satisfy the requirements, while this also
+# repairs persistent environments that are incomplete or out of date.
+echo "Ensuring Django and test dependencies are installed..."
 
-    uv pip install --python "${VENV_PATH}/bin/python" --editable .
-    uv pip install \
-        --python "${VENV_PATH}/bin/python" \
-        --requirements tests/requirements/py3.txt
-    uv pip install \
-        --python "${VENV_PATH}/bin/python" \
-        tox \
-        pre-commit
+uv pip install --python "${VENV_PATH}/bin/python" --editable .
+uv pip install \
+    --python "${VENV_PATH}/bin/python" \
+    --requirements tests/requirements/py3.txt
+uv pip install \
+    --python "${VENV_PATH}/bin/python" \
+    tox \
+    pre-commit
 
-    touch "${INSTALL_MARKER}"
-fi
 
 exec "$@"

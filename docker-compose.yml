@@ -1,11 +1,12 @@
 services:
-  django:
+  django_geos3_12_3: &default-django
     build:
       context: .
       dockerfile: docker/Dockerfile
       args:
         PYTHON_VERSION: "${PYTHON_VERSION:-3.13}"
         UV_VERSION: "${UV_VERSION:-0.8.3}"
+        GEOS_VERSION: "${GEOS_VERSION:-3.12.3}"
         USER_ID: "${USER_ID:-1000}"
         GROUP_ID: "${GROUP_ID:-1000}"
 
@@ -23,9 +24,11 @@ services:
         target: /home/django/.cache/uv
 
       # Avoid storing the Linux virtual environment on a macOS or Windows
-      # bind mount.
+      # bind mount. Each GEOS variant gets its own venv volume so the
+      # containers can be built/run concurrently without racing on the
+      # same `uv pip install --editable .` target.
       - type: volume
-        source: django-venv
+        source: django-venv-geos3-12-3
         target: /workspace/.venv
 
     environment:
@@ -45,6 +48,111 @@ services:
     stdin_open: true
     tty: true
 
+  django_geos3_13_0:
+    <<: *default-django
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        GEOS_VERSION: "${GEOS_VERSION:-3.13.0}"
+        USER_ID: "${USER_ID:-1000}"
+        GROUP_ID: "${GROUP_ID:-1000}"
+    volumes:
+      - type: bind
+        source: .
+        target: /workspace
+      - type: volume
+        source: django-uv-cache
+        target: /home/django/.cache/uv
+      - type: volume
+        source: django-venv-geos3-13-0
+        target: /workspace/.venv
+
+  django_geos3_13_1:
+    <<: *default-django
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        GEOS_VERSION: "${GEOS_VERSION:-3.13.1}"
+        USER_ID: "${USER_ID:-1000}"
+        GROUP_ID: "${GROUP_ID:-1000}"
+    volumes:
+      - type: bind
+        source: .
+        target: /workspace
+      - type: volume
+        source: django-uv-cache
+        target: /home/django/.cache/uv
+      - type: volume
+        source: django-venv-geos3-13-1
+        target: /workspace/.venv
+
+  django_geos3_14_0:
+    <<: *default-django
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        GEOS_VERSION: "${GEOS_VERSION:-3.14.0}"
+        USER_ID: "${USER_ID:-1000}"
+        GROUP_ID: "${GROUP_ID:-1000}"
+    volumes:
+      - type: bind
+        source: .
+        target: /workspace
+      - type: volume
+        source: django-uv-cache
+        target: /home/django/.cache/uv
+      - type: volume
+        source: django-venv-geos3-14-0
+        target: /workspace/.venv
+
+  django_geos3_14_1:
+    <<: *default-django
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        GEOS_VERSION: "${GEOS_VERSION:-3.14.1}"
+        USER_ID: "${USER_ID:-1000}"
+        GROUP_ID: "${GROUP_ID:-1000}"
+    volumes:
+      - type: bind
+        source: .
+        target: /workspace
+      - type: volume
+        source: django-uv-cache
+        target: /home/django/.cache/uv
+      - type: volume
+        source: django-venv-geos3-14-1
+        target: /workspace/.venv
+
+  django_geos3_15_0:
+    <<: *default-django
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        GEOS_VERSION: "${GEOS_VERSION:-3.15.0}"
+        USER_ID: "${USER_ID:-1000}"
+        GROUP_ID: "${GROUP_ID:-1000}"
+    volumes:
+      - type: bind
+        source: .
+        target: /workspace
+      - type: volume
+        source: django-uv-cache
+        target: /home/django/.cache/uv
+      - type: volume
+        source: django-venv-geos3-15-0
+        target: /workspace/.venv
+
 volumes:
   django-uv-cache:
-  django-venv:
+  django-venv-geos3-12-3:
+  django-venv-geos3-13-0:
+  django-venv-geos3-13-1:
+  django-venv-geos3-14-0:
+  django-venv-geos3-14-1:
+  django-venv-geos3-15-0:

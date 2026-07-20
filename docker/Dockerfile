@@ -1,9 +1,12 @@
 ARG PYTHON_VERSION=3.13
 ARG UV_VERSION=0.8.3
+ARG GEOS_VERSION=3.14.1
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 
-FROM python:${PYTHON_VERSION}-bookworm
+FROM python:${PYTHON_VERSION}-trixie
+
+ARG GEOS_VERSION
 
 ARG USER_ID=1001
 ARG GROUP_ID=1001
@@ -21,20 +24,44 @@ RUN apt-get update \
         bash \
         build-essential \
         ca-certificates \
+        bzip2 \
+        cmake \
+        curl \
+        gdal-bin \
         gettext \
         git \
         libffi-dev \
+        libgdal-dev \
+        libgeos-dev \
         libjpeg62-turbo-dev \
         libmemcached-dev \
+        libproj-dev \
         libsasl2-dev \
         libsqlite3-dev \
+        libsqlite3-mod-spatialite \
         libssl-dev \
         libxml2-dev \
         libxslt1-dev \
         pkg-config \
+        proj-bin \
         sqlite3 \
         zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
+
+RUN curl --fail --location --silent --show-error \
+        "https://download.osgeo.org/geos/geos-${GEOS_VERSION}.tar.bz2" \
+        --output /tmp/geos.tar.bz2 \
+    && tar --extract --bzip2 --file /tmp/geos.tar.bz2 --directory /tmp \
+    && cmake \
+        -S "/tmp/geos-${GEOS_VERSION}" \
+        -B /tmp/geos-build \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr/local \
+        -DBUILD_TESTING=OFF \
+    && cmake --build /tmp/geos-build --parallel "$(nproc --all | awk '{print ($1 > 8) ? 8 : $1}')" \
+    && cmake --install /tmp/geos-build \
+    && ldconfig \
+    && rm -rf /tmp/geos.tar.bz2 /tmp/geos-build "/tmp/geos-${GEOS_VERSION}"
 
 COPY --from=uv /uv /uvx /usr/local/bin/
 
