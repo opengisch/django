@@ -240,6 +240,7 @@ class GeometryField(BaseSpatialField):
     # The OpenGIS Geometry name.
     geom_type = "GEOMETRY"
     geom_class = None
+    accepted_geom_class = None
 
     def __init__(
         self,
@@ -301,7 +302,11 @@ class GeometryField(BaseSpatialField):
         setattr(
             cls,
             self.attname,
-            SpatialProxy(self.geom_class or GEOSGeometry, self, load_func=GEOSGeometry),
+            SpatialProxy(
+                self.accepted_geom_class or self.geom_class or GEOSGeometry,
+                self,
+                load_func=GEOSGeometry,
+            ),
         )
 
     def formfield(self, **kwargs):
@@ -388,6 +393,7 @@ class CircularStringField(GeometryField):
 class CompoundCurveField(GeometryField):
     geom_type = "COMPOUNDCURVE"
     geom_class = CompoundCurve
+    accepted_geom_class = (CompoundCurve, LineString)
     form_class = forms.CompoundCurveField
     description = _("Compound curve")
 
@@ -395,6 +401,7 @@ class CompoundCurveField(GeometryField):
 class CurvePolygonField(GeometryField):
     geom_type = "CURVEPOLYGON"
     geom_class = CurvePolygon
+    accepted_geom_class = (CurvePolygon, Polygon)
     form_class = forms.CurvePolygonField
     description = _("Curve polygon")
 
@@ -402,6 +409,7 @@ class CurvePolygonField(GeometryField):
 class MultiCurveField(GeometryField):
     geom_type = "MULTICURVE"
     geom_class = MultiCurve
+    accepted_geom_class = (MultiCurve, MultiLineString)
     form_class = forms.MultiCurveField
     description = _("Multi curve")
 
@@ -409,6 +417,7 @@ class MultiCurveField(GeometryField):
 class MultiSurfaceField(GeometryField):
     geom_type = "MULTISURFACE"
     geom_class = MultiSurface
+    accepted_geom_class = (MultiSurface, MultiPolygon)
     form_class = forms.MultiSurfaceField
     description = _("Multi surface")
 

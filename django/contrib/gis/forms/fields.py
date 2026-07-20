@@ -15,6 +15,7 @@ class GeometryField(forms.Field):
 
     widget = OpenLayersWidget
     geom_type = "GEOMETRY"
+    compatible_geom_types = ()
 
     default_error_messages = {
         "required": _("No geometry value provided."),
@@ -72,10 +73,9 @@ class GeometryField(forms.Field):
 
         # Ensuring that the geometry is of the correct type (indicated
         # using the OGC string label).
-        if (
-            str(geom.geom_type).upper() != self.geom_type
-            and self.geom_type != "GEOMETRY"
-        ):
+        geom_type = str(geom.geom_type).upper()
+        allowed_geom_types = {self.geom_type, *self.compatible_geom_types}
+        if self.geom_type != "GEOMETRY" and geom_type not in allowed_geom_types:
             raise ValidationError(
                 self.error_messages["invalid_geom_type"], code="invalid_geom_type"
             )
@@ -146,15 +146,19 @@ class CircularStringField(GeometryField):
 
 class CompoundCurveField(GeometryField):
     geom_type = "COMPOUNDCURVE"
+    compatible_geom_types = ("LINESTRING",)
 
 
 class CurvePolygonField(GeometryField):
     geom_type = "CURVEPOLYGON"
+    compatible_geom_types = ("POLYGON",)
 
 
 class MultiCurveField(GeometryField):
     geom_type = "MULTICURVE"
+    compatible_geom_types = ("MULTILINESTRING",)
 
 
 class MultiSurfaceField(GeometryField):
     geom_type = "MULTISURFACE"
+    compatible_geom_types = ("MULTIPOLYGON",)
