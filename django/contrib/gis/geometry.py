@@ -6,6 +6,7 @@ from django.utils.regex_helper import _lazy_re_compile
 # to prevent potentially malicious input from reaching the underlying C
 # library. Not a substitute for good web security programming practices.
 hex_regex = _lazy_re_compile(r"^[0-9A-F]+$", re.I)
+# TODO @suricactus: ensure all curved geometries are reflected in the list below
 wkt_regex = _lazy_re_compile(
     r"^(SRID=(?P<srid>\-?[0-9]+);)?"
     r"(?P<wkt>"
