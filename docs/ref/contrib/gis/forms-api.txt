@@ -98,6 +98,41 @@ Form field classes
 
 .. class:: GeometryCollectionField
 
+``CircularStringField``
+-----------------------
+
+.. class:: CircularStringField
+
+.. versionadded:: 6.2
+
+``CompoundCurveField``
+----------------------
+
+.. class:: CompoundCurveField
+
+.. versionadded:: 6.2
+
+``CurvePolygonField``
+---------------------
+
+.. class:: CurvePolygonField
+
+.. versionadded:: 6.2
+
+``MultiCurveField``
+-------------------
+
+.. class:: MultiCurveField
+
+.. versionadded:: 6.2
+
+``MultiSurfaceField``
+---------------------
+
+.. class:: MultiSurfaceField
+
+.. versionadded:: 6.2
+
 Form widgets
 ============
 

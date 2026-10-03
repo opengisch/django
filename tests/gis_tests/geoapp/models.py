@@ -125,3 +125,38 @@ class Lines(models.Model):
 
 class GeometryCollectionModel(models.Model):
     geom = models.GeometryCollectionField(max_geom_collections=5)
+
+
+class CircularStringModel(models.Model):
+    geom = models.CircularStringField()
+
+    class Meta:
+        required_db_features = {"supports_curved_geometries"}
+
+
+class CompoundCurveModel(models.Model):
+    geom = models.CompoundCurveField()
+
+    class Meta:
+        required_db_features = {"supports_curved_geometries"}
+
+
+class CurvePolygonModel(models.Model):
+    geom = models.CurvePolygonField()
+
+    class Meta:
+        required_db_features = {"supports_curved_geometries"}
+
+
+class MultiCurveModel(models.Model):
+    geom = models.MultiCurveField()
+
+    class Meta:
+        required_db_features = {"supports_curved_geometries"}
+
+
+class MultiSurfaceModel(models.Model):
+    geom = models.MultiSurfaceField()
+
+    class Meta:
+        required_db_features = {"supports_curved_geometries"}

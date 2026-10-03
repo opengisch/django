@@ -438,6 +438,15 @@ backends.
 
 * Support for GEOS 3.10 is removed.
 
+* :mod:`django.contrib.gis.geos` now supports
+  :ref:`curved geometries <geos-curved-geometries>`: ``CircularString``,
+  ``CompoundCurve``, ``CurvePolygon``, ``MultiCurve``, and ``MultiSurface``.
+  These are also available as model and form fields, e.g.
+  :class:`~django.contrib.gis.db.models.CircularStringField` and
+  :class:`~django.contrib.gis.forms.CircularStringField`.
+  Model fields are currently only implemented for the PostGIS backend.
+  Requires GEOS 3.13.0+.
+
 CSP
 ---
 

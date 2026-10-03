@@ -57,11 +57,13 @@ class OperationTestCase(TransactionTestCase):
         with connection.schema_editor() as editor:
             return migration.apply(project_state, editor)
 
-    def set_up_test_model(self, force_raster_creation=False):
+    def set_up_test_model(
+        self, force_raster_creation=False, geom_field=fields.MultiPolygonField
+    ):
         test_fields = [
             ("id", models.AutoField(primary_key=True)),
             ("name", models.CharField(max_length=100, unique=True)),
-            ("geom", fields.MultiPolygonField(srid=4326)),
+            ("geom", geom_field(srid=4326)),
         ]
         if connection.features.supports_raster or force_raster_creation:
             test_fields += [("rast", fields.RasterField(srid=4326, null=True))]
@@ -121,8 +123,16 @@ class OperationTestCase(TransactionTestCase):
         operation = migration_class(*args)
         old_state = self.current_state.clone()
         operation.state_forwards("gis", self.current_state)
-        with connection.schema_editor() as editor:
-            operation.database_forwards("gis", editor, old_state, self.current_state)
+        try:
+            with connection.schema_editor() as editor:
+                operation.database_forwards(
+                    "gis", editor, old_state, self.current_state
+                )
+        except Exception:
+            # Keep the recorded state in sync with the database so that
+            # tearDown() can still remove the model.
+            self.current_state = old_state
+            raise
 
 
 class OperationTests(OperationTestCase):
@@ -470,3 +480,38 @@ class NoRasterSupportTests(OperationTestCase):
             self.alter_gis_model(
                 migrations.AddField, "Neighborhood", "heatmap", fields.RasterField
             )
+
+
+@skipIfDBFeature("supports_curved_geometries")
+class NoCurvedGeometriesTests(OperationTestCase):
+    curved_fields = {
+        "CIRCULARSTRING": fields.CircularStringField,
+        "COMPOUNDCURVE": fields.CompoundCurveField,
+        "CURVEPOLYGON": fields.CurvePolygonField,
+        "MULTICURVE": fields.MultiCurveField,
+        "MULTISURFACE": fields.MultiSurfaceField,
+    }
+
+    def test_create_curved_geometry_model_on_db_without_curved_geometries_support(self):
+        for geom_type, field in self.curved_fields.items():
+            with self.subTest(geom_type=geom_type):
+                msg = (
+                    f"Curved geometry field {geom_type} requires a backend "
+                    "with curved geometry support."
+                )
+                with self.assertRaisesMessage(ImproperlyConfigured, msg):
+                    self.set_up_test_model(geom_field=field)
+
+    def test_add_curved_geometry_field_on_db_without_curved_geometries_support(self):
+        self.set_up_test_model()
+
+        for geom_type, field in self.curved_fields.items():
+            with self.subTest(geom_type=geom_type):
+                msg = (
+                    f"Curved geometry field {geom_type} requires a backend "
+                    "with curved geometry support."
+                )
+                with self.assertRaisesMessage(ImproperlyConfigured, msg):
+                    self.alter_gis_model(
+                        migrations.AddField, "Neighborhood", "curved_geom", field
+                    )

@@ -58,7 +58,7 @@ class GEOSGeometryBase(GEOSBase):
             from .point import Point
             from .polygon import Polygon
 
-            GEOSGeometryBase._GEOS_CLASSES = {
+            geos_classes = {
                 0: Point,
                 1: LineString,
                 2: LinearRing,
@@ -68,6 +68,27 @@ class GEOSGeometryBase(GEOSBase):
                 6: MultiPolygon,
                 7: GeometryCollection,
             }
+            if geos_version_tuple() >= (3, 13, 0):
+                from .curved import (
+                    CircularString,
+                    CompoundCurve,
+                    CurvePolygon,
+                    MultiCurve,
+                    MultiSurface,
+                )
+
+                geos_classes.update(
+                    {
+                        8: CircularString,
+                        9: CompoundCurve,
+                        10: CurvePolygon,
+                        11: MultiCurve,
+                        12: MultiSurface,
+                    }
+                )
+
+            GEOSGeometryBase._GEOS_CLASSES = geos_classes
+
         return GEOSGeometryBase._GEOS_CLASSES
 
     def _post_init(self):

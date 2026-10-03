@@ -7,17 +7,23 @@ from django.contrib.gis import gdal
 from django.contrib.gis.db.models import Extent, MakeLine, Union, functions
 from django.contrib.gis.gdal.raster.source import DisallowedRasterLookup
 from django.contrib.gis.geos import (
+    CircularString,
+    CompoundCurve,
+    CurvePolygon,
     GeometryCollection,
     GEOSGeometry,
     LinearRing,
     LineString,
+    MultiCurve,
     MultiLineString,
     MultiPoint,
     MultiPolygon,
+    MultiSurface,
     Point,
     Polygon,
     fromstr,
 )
+from django.contrib.gis.geos.error import GEOSException
 from django.core.exceptions import SuspiciousOperation
 from django.core.files.temp import NamedTemporaryFile
 from django.core.management import call_command
@@ -28,15 +34,20 @@ from django.test.utils import CaptureQueriesContext
 
 from ..data.invalid.external_crs import EXTERNAL_CRS_FIXTURES
 from ..data.rasters.textrasters import JSON_RASTER
-from ..utils import cannot_save_multipoint, skipUnlessGISLookup
+from ..utils import cannot_save_multipoint, geos_version_tuple, skipUnlessGISLookup
 from .models import (
+    CircularStringModel,
     City,
+    CompoundCurveModel,
     Country,
+    CurvePolygonModel,
     Feature,
     GeometryCollectionModel,
     Lines,
     MinusOneSRID,
+    MultiCurveModel,
     MultiFields,
+    MultiSurfaceModel,
     NonConcreteModel,
     PennsylvaniaCity,
     Points,
@@ -261,6 +272,17 @@ class GeoModelTest(TestCase):
             MultiPolygon,
             GeometryCollection,
         ]
+        if geos_version_tuple() >= (3, 13, 0):
+            geometry_classes.extend(
+                [
+                    CircularString,
+                    CompoundCurve,
+                    CurvePolygon,
+                    MultiCurve,
+                    MultiSurface,
+                ]
+            )
+
         for klass in geometry_classes:
             g = klass(srid=4326)
             model_class = Feature
@@ -344,6 +366,165 @@ class SaveLoadTests(TestCase):
         limit_mock.assert_called_once()
         max_geom_collections = limit_mock.call_args.args[1]
         self.assertIsNone(max_geom_collections)
+
+
+@skipIf(
+    geos_version_tuple() < (3, 13, 0),
+    "Curved geometries require GEOS 3.13.0+",
+)
+@skipUnlessDBFeature("supports_curved_geometries")
+class CurvedGeomsTest(TestCase):
+    def test_circularstring(self):
+        geom = CircularString((2, 5), (8, 5), (2, 5))
+
+        obj = CircularStringModel.objects.create(geom=geom)
+        obj.refresh_from_db()
+
+        # equals() (GEOSEquals, DE-9IM topological equality) isn't
+        # supported by GEOS for curved geometries at least until 3.15.0.
+        with self.assertRaisesMessage(
+            GEOSException,
+            'Error encountered on GEOS C predicate function "GEOSEquals_r"',
+        ):
+            obj.geom.equals(geom)
+        self.assertIs(obj.geom.equals_exact(geom), True)
+        self.assertIs(obj.geom.equals_identical(geom), True)
+
+    def test_compoundcurve(self):
+        geom = CompoundCurve(
+            LineString((5, 3), (5, 13)),
+            CircularString((5, 13), (7, 15), (9, 13)),
+            LineString((9, 13), (9, 3)),
+            CircularString((9, 3), (7, 1), (5, 3)),
+        )
+
+        obj = CompoundCurveModel.objects.create(geom=geom)
+        obj.refresh_from_db()
+
+        # equals() (GEOSEquals, DE-9IM topological equality) isn't
+        # supported by GEOS for curved geometries at least until 3.15.0.
+        with self.assertRaisesMessage(
+            GEOSException,
+            'Error encountered on GEOS C predicate function "GEOSEquals_r"',
+        ):
+            obj.geom.equals(geom)
+        self.assertIs(obj.geom.equals_exact(geom), True)
+        self.assertIs(obj.geom.equals_identical(geom), True)
+
+    def test_curvepolygon(self):
+        geom = CurvePolygon(
+            CircularString((0, 0), (4, 0), (4, 4), (0, 4), (0, 0)),
+            LineString((1, 1), (3, 3), (3, 1), (1, 1)),
+        )
+
+        obj = CurvePolygonModel.objects.create(geom=geom)
+        obj.refresh_from_db()
+
+        # equals() (GEOSEquals, DE-9IM topological equality) isn't
+        # supported by GEOS for curved geometries at least until 3.15.0.
+        with self.assertRaisesMessage(
+            GEOSException,
+            'Error encountered on GEOS C predicate function "GEOSEquals_r"',
+        ):
+            obj.geom.equals(geom)
+        self.assertIs(obj.geom.equals_exact(geom), True)
+        self.assertIs(obj.geom.equals_identical(geom), True)
+
+    def test_curvepolygon_with_linearring(self):
+        geom = CurvePolygon(
+            CircularString((0, 0), (4, 0), (4, 4), (0, 4), (0, 0)),
+            LinearRing((1, 1), (3, 3), (3, 1), (1, 1)),
+        )
+
+        obj = CurvePolygonModel.objects.create(geom=geom)
+        obj.refresh_from_db()
+
+        # equals() (GEOSEquals, DE-9IM topological equality) isn't
+        # supported by GEOS for curved geometries at least until 3.15.0.
+        with self.assertRaisesMessage(
+            GEOSException,
+            'Error encountered on GEOS C predicate function "GEOSEquals_r"',
+        ):
+            obj.geom.equals(geom)
+        # Unfortunately, equals_exact() and equals_identical() return False
+        # before GEOS 3.15.0  when the CurvePolygon has a LinearRing as one
+        # of its components.
+        # The reason for that is because when parsing the geometry back from
+        # the database, the LinearRing is not preserved as a LinearRing but
+        # rather as a LineString. This should not be a problem if equals() is
+        # used for topological equality.
+        self.assertIs(obj.geom.equals_exact(geom), False)
+        self.assertIs(obj.geom.equals_identical(geom), False)
+
+    def test_multicurve(self):
+        geom = MultiCurve(
+            LineString((-12.2, 11.5), (12.2, 11.5)),
+            CircularString((-11.5, 0), (0, 11.5), (11.5, 0)),
+        )
+
+        obj = MultiCurveModel.objects.create(geom=geom)
+        obj.refresh_from_db()
+
+        # equals() (GEOSEquals, DE-9IM topological equality) isn't
+        # supported by GEOS for curved geometries at least until 3.15.0.
+        with self.assertRaisesMessage(
+            GEOSException,
+            'Error encountered on GEOS C predicate function "GEOSEquals_r"',
+        ):
+            obj.geom.equals(geom)
+        self.assertIs(obj.geom.equals_exact(geom), True)
+        self.assertIs(obj.geom.equals_identical(geom), True)
+
+    def test_multisurface(self):
+        geom = MultiSurface(
+            CurvePolygon(
+                CircularString((0, 0), (4, 0), (4, 4), (0, 4), (0, 0)),
+                LineString((1, 1), (3, 3), (3, 1), (1, 1)),
+            ),
+            Polygon(((5, 5), (5, 6), (6, 6), (6, 5), (5, 5))),
+        )
+
+        obj = MultiSurfaceModel.objects.create(geom=geom)
+        obj.refresh_from_db()
+
+        # equals() (GEOSEquals, DE-9IM topological equality) isn't
+        # supported by GEOS for curved geometries at least until 3.15.0.
+        with self.assertRaisesMessage(
+            GEOSException,
+            'Error encountered on GEOS C predicate function "GEOSEquals_r"',
+        ):
+            obj.geom.equals(geom)
+        self.assertIs(obj.geom.equals_exact(geom), True)
+        self.assertIs(obj.geom.equals_identical(geom), True)
+
+    def test_multisurface_with_linearring(self):
+        geom = MultiSurface(
+            CurvePolygon(
+                CircularString((0, 0), (4, 0), (4, 4), (0, 4), (0, 0)),
+                LinearRing((1, 1), (3, 3), (3, 1), (1, 1)),
+            ),
+            Polygon(((5, 5), (5, 6), (6, 6), (6, 5), (5, 5))),
+        )
+
+        obj = MultiSurfaceModel.objects.create(geom=geom)
+        obj.refresh_from_db()
+
+        # equals() (GEOSEquals, DE-9IM topological equality) isn't
+        # supported by GEOS for curved geometries at least until 3.15.0.
+        with self.assertRaisesMessage(
+            GEOSException,
+            'Error encountered on GEOS C predicate function "GEOSEquals_r"',
+        ):
+            obj.geom.equals(geom)
+        # Unfortunately, equals_exact() and equals_identical() return False
+        # before GEOS 3.15.0  when the CurvePolygon has a LinearRing as one
+        # of its components.
+        # The reason for that is because when parsing the geometry back from
+        # the database, the LinearRing is not preserved as a LinearRing but
+        # rather as a LineString. This should not be a problem if equals() is
+        # used for topological equality.
+        self.assertIs(obj.geom.equals_exact(geom), False)
+        self.assertIs(obj.geom.equals_identical(geom), False)
 
 
 class ValidationTests(SimpleTestCase):

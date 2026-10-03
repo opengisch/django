@@ -87,6 +87,66 @@ Stores a :class:`~django.contrib.gis.geos.MultiPolygon`.
 
 Stores a :class:`~django.contrib.gis.geos.GeometryCollection`.
 
+``CircularStringField``
+-----------------------
+
+.. class:: CircularStringField
+
+.. versionadded:: 6.2
+
+Stores a :class:`~django.contrib.gis.geos.CircularString`. Requires
+GEOS >= 3.13.
+
+``CircularStringField`` is currently only implemented for the PostGIS backend.
+
+``CompoundCurveField``
+----------------------
+
+.. class:: CompoundCurveField
+
+.. versionadded:: 6.2
+
+Stores a :class:`~django.contrib.gis.geos.CompoundCurve`. Requires
+GEOS >= 3.13.
+
+``CompoundCurveField`` is currently only implemented for the PostGIS backend.
+
+``CurvePolygonField``
+---------------------
+
+.. class:: CurvePolygonField
+
+.. versionadded:: 6.2
+
+Stores a :class:`~django.contrib.gis.geos.CurvePolygon`. Requires
+GEOS >= 3.13.
+
+``CurvePolygonField`` is currently only implemented for the PostGIS backend.
+
+``MultiCurveField``
+-------------------
+
+.. class:: MultiCurveField
+
+.. versionadded:: 6.2
+
+Stores a :class:`~django.contrib.gis.geos.MultiCurve`. Requires
+GEOS >= 3.13.
+
+``MultiCurveField`` is currently only implemented for the PostGIS backend.
+
+``MultiSurfaceField``
+---------------------
+
+.. class:: MultiSurfaceField
+
+.. versionadded:: 6.2
+
+Stores a :class:`~django.contrib.gis.geos.MultiSurface`. Requires
+GEOS >= 3.13.
+
+``MultiSurfaceField`` is currently only implemented for the PostGIS backend.
+
 ``RasterField``
 ---------------
 

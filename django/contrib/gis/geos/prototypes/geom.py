@@ -75,6 +75,24 @@ create_collection = GeomOutput(
     argtypes=[c_int, POINTER(GEOM_PTR), c_uint],
 )
 
+# Curved geometry creation routines (require GEOS >= 3.13).
+create_circularstring = GeomOutput("GEOSGeom_createCircularString", argtypes=[CS_PTR])
+create_empty_circularstring = GeomOutput(
+    "GEOSGeom_createEmptyCircularString", argtypes=[]
+)
+create_compoundcurve = GeomOutput(
+    "GEOSGeom_createCompoundCurve",
+    argtypes=[POINTER(GEOM_PTR), c_uint],
+)
+create_empty_compoundcurve = GeomOutput(
+    "GEOSGeom_createEmptyCompoundCurve", argtypes=[]
+)
+create_curvepolygon = GeomOutput(
+    "GEOSGeom_createCurvePolygon",
+    argtypes=[GEOM_PTR, POINTER(GEOM_PTR), c_uint],
+)
+create_empty_curvepolygon = GeomOutput("GEOSGeom_createEmptyCurvePolygon", argtypes=[])
+
 # Ring routines
 get_extring = GeomOutput("GEOSGetExteriorRing", argtypes=[GEOM_PTR])
 get_intring = GeomOutput("GEOSGetInteriorRingN", argtypes=[GEOM_PTR, c_int])

@@ -46,6 +46,9 @@ class BaseSpatialFeatures:
     # Does the database have raster support?
     supports_raster = False
 
+    # Does the database support curved geometries?
+    supports_curved_geometries = False
+
     # Does the database support a unique index on geometry fields?
     supports_geometry_field_unique_index = True
 

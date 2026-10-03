@@ -25,6 +25,7 @@ class BaseGeometryWidget(Widget):
     max_geom_collections = MAX_GEOM_COLLECTIONS
 
     supports_3d = False
+    supports_curved_geometries = False
     template_name = ""  # set on subclasses
 
     def __init__(self, attrs=None):

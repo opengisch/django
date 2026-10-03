@@ -9,6 +9,13 @@ from .collections import (  # NOQA
     MultiPoint,
     MultiPolygon,
 )
+from .curved import (  # NOQA
+    CircularString,
+    CompoundCurve,
+    CurvePolygon,
+    MultiCurve,
+    MultiSurface,
+)
 from .error import GEOSException  # NOQA
 from .factory import fromfile, fromstr  # NOQA
 from .geometry import GEOSGeometry, hex_regex, wkt_regex  # NOQA
