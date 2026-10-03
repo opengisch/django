@@ -62,6 +62,24 @@ class GEOSGeometryBase(GEOSBase):
                         6: MultiPolygon,
                         7: GeometryCollection,
                     }
+                    if geos_version_tuple() >= (3, 13, 0):
+                        from .curved import (
+                            CircularString,
+                            CompoundCurve,
+                            CurvePolygon,
+                            MultiCurve,
+                            MultiSurface,
+                        )
+
+                        GEOSGeometryBase._GEOS_CLASSES.update(
+                            {
+                                8: CircularString,
+                                9: CompoundCurve,
+                                10: CurvePolygon,
+                                11: MultiCurve,
+                                12: MultiSurface,
+                            }
+                        )
                 cls = GEOSGeometryBase._GEOS_CLASSES[self.geom_typeid]
             self.__class__ = cls
         self._post_init()

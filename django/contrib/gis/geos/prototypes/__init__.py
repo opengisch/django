@@ -24,7 +24,13 @@ from django.contrib.gis.geos.prototypes.coordseq import (  # NOQA
     get_cs,
 )
 from django.contrib.gis.geos.prototypes.geom import (  # NOQA
+    create_circularstring,
     create_collection,
+    create_compoundcurve,
+    create_curvepolygon,
+    create_empty_circularstring,
+    create_empty_compoundcurve,
+    create_empty_curvepolygon,
     create_empty_polygon,
     create_linearring,
     create_linestring,

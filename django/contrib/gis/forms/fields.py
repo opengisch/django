@@ -17,6 +17,7 @@ class GeometryField(forms.Field):
     widget = OpenLayersWidget
     geom_type = "GEOMETRY"
     max_geom_collections = MAX_GEOM_COLLECTIONS
+    _additional_accepted_geom_types = ()
 
     default_error_messages = {
         "required": _("No geometry value provided."),
@@ -84,10 +85,10 @@ class GeometryField(forms.Field):
 
         # Ensuring that the geometry is of the correct type (indicated
         # using the OGC string label).
-        if (
-            str(geom.geom_type).upper() != self.geom_type
-            and self.geom_type != "GEOMETRY"
-        ):
+        geom_type = str(geom.geom_type).upper()
+        accepted_geom_types = {self.geom_type, *self.accepted_geom_types}
+
+        if self.geom_type != "GEOMETRY" and geom_type not in accepted_geom_types:
             raise ValidationError(
                 self.error_messages["invalid_geom_type"], code="invalid_geom_type"
             )
@@ -123,6 +124,10 @@ class GeometryField(forms.Field):
             # Check for change of state of existence
             return bool(initial) != bool(data)
 
+    @property
+    def accepted_geom_types(self):
+        return tuple([self.geom_type, *self._additional_accepted_geom_types])
+
 
 class GeometryCollectionField(GeometryField):
     geom_type = "GEOMETRYCOLLECTION"
@@ -150,3 +155,27 @@ class PolygonField(GeometryField):
 
 class MultiPolygonField(GeometryField):
     geom_type = "MULTIPOLYGON"
+
+
+class CircularStringField(GeometryField):
+    geom_type = "CIRCULARSTRING"
+
+
+class CompoundCurveField(GeometryField):
+    geom_type = "COMPOUNDCURVE"
+    _additional_accepted_geom_types = ("LINESTRING",)
+
+
+class CurvePolygonField(GeometryField):
+    geom_type = "CURVEPOLYGON"
+    _additional_accepted_geom_types = ("POLYGON",)
+
+
+class MultiCurveField(GeometryField):
+    geom_type = "MULTICURVE"
+    _additional_accepted_geom_types = ("MULTILINESTRING",)
+
+
+class MultiSurfaceField(GeometryField):
+    geom_type = "MULTISURFACE"
+    _additional_accepted_geom_types = ("MULTIPOLYGON",)
