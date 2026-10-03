@@ -368,6 +368,10 @@ backends.
 
 * Support for GEOS 3.10 is removed.
 
+* :mod:`django.contrib.gis.geos` now supports curved geometries, including
+  CurvePolygon, CompoundCurve, CircularString, MultiSurface,
+  and MultiCurve.
+
 CSP
 ---
 
