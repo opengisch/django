@@ -1,8 +1,10 @@
 import re
+from unittest import skipIf
 
 from django.contrib.gis import forms
 from django.contrib.gis.forms import BaseGeometryWidget, OpenLayersWidget
 from django.contrib.gis.geos import GEOSGeometry
+from django.contrib.gis.geos.libgeos import geos_version_tuple
 from django.contrib.gis.geos.prototypes.io import MAX_GEOM_COLLECTIONS
 from django.core.exceptions import ValidationError
 from django.template.defaultfilters import json_script
@@ -349,6 +351,65 @@ class SpecializedFieldTest(SimpleTestCase):
             ),
         }
 
+        if geos_version_tuple() >= (3, 13, 0):
+            self.geometries.update(
+                {
+                    "circularstring": GEOSGeometry(
+                        "SRID=4326;CIRCULARSTRING (2 5,8 5,2 5)"
+                    ),
+                    "compoundcurve": GEOSGeometry(
+                        "SRID=4326;COMPOUNDCURVE (("
+                        "5 3,"
+                        "5 13),"
+                        "CIRCULARSTRING ("
+                        "5 13,"
+                        "7 15,"
+                        "9 13),"
+                        "(9 13,"
+                        "9 3),"
+                        "CIRCULARSTRING ("
+                        "9 3,"
+                        "7 1,"
+                        "5 3))"
+                    ),
+                    "curvepolygon": GEOSGeometry(
+                        "SRID=4326;CURVEPOLYGON ("
+                        "CIRCULARSTRING ("
+                        "0 0,"
+                        "4 0,"
+                        "4 4,"
+                        "0 4,"
+                        "0 0),"
+                        "(1 1,"
+                        "3 3,"
+                        "3 1,"
+                        "1 1))"
+                    ),
+                    "multicurve": GEOSGeometry(
+                        "SRID=4326;MULTICURVE ("
+                        "(-12.2 11.5, "
+                        "12.2 11.5),"
+                        "CIRCULARSTRING("
+                        "-11.5 0,"
+                        "0 11.5,"
+                        "11.5 0))"
+                    ),
+                    "multisurface": GEOSGeometry(
+                        "SRID=4326;MULTISURFACE ((("
+                        "0 0,"
+                        "0 1,"
+                        "1 1,"
+                        "1 0,"
+                        "0 0)),"
+                        "((1 1,"
+                        "1 2,"
+                        "2 2,"
+                        "2 1,"
+                        "1 1)))"
+                    ),
+                }
+            )
+
     def assertMapWidget(self, form_instance, geom_name):
         """
         Make sure the MapWidget js is passed in the form media and a MapWidget
@@ -490,6 +551,106 @@ class SpecializedFieldTest(SimpleTestCase):
             geo for key, geo in self.geometries.items() if key != "geometrycollection"
         ]:
             self.assertFalse(GeometryForm(data={"g": invalid.wkt}).is_valid())
+
+    @skipIf(geos_version_tuple() < (3, 13, 0), "GEOS curved support requires 3.13.0+")
+    def test_circularstringfield(self):
+        class CircularStringForm(forms.Form):
+            c = forms.CircularStringField()
+
+        geom = self.geometries["circularstring"]
+        form = CircularStringForm(data={"c": geom})
+        self.assertTextarea(geom, form.as_p())
+        self.assertMapWidget(form, "CircularString")
+        self.assertFalse(CircularStringForm().is_valid())
+
+        for invalid in [
+            geo for key, geo in self.geometries.items() if key != "circularstring"
+        ]:
+            self.assertFalse(CircularStringForm(data={"c": invalid.wkt}).is_valid())
+
+    @skipIf(geos_version_tuple() < (3, 13, 0), "GEOS curved support requires 3.13.0+")
+    def test_compoundcurvefield(self):
+        class CompoundCurveForm(forms.Form):
+            c = forms.CompoundCurveField()
+
+        # empty form is invalid
+        self.assertFalse(CompoundCurveForm().is_valid())
+
+        geom = self.geometries["compoundcurve"]
+        form = CompoundCurveForm(data={"c": geom})
+        self.assertTextarea(geom, form.as_p())
+        self.assertMapWidget(form, "CompoundCurve")
+
+        # form with any other geometry type data is invalid
+        for invalid in [
+            geo for key, geo in self.geometries.items() if key != "compoundcurve"
+        ]:
+            with self.subTest(wkt=invalid.wkt):
+                form = CompoundCurveForm(data={"c": invalid.wkt})
+                self.assertFalse(form.is_valid())
+
+    @skipIf(geos_version_tuple() < (3, 13, 0), "GEOS curved support requires 3.13.0+")
+    def test_curvepolygonfield(self):
+        class CurvePolygonForm(forms.Form):
+            c = forms.CurvePolygonField()
+
+        # empty form is invalid
+        self.assertFalse(CurvePolygonForm().is_valid())
+
+        geom = self.geometries["curvepolygon"]
+        form = CurvePolygonForm(data={"c": geom})
+        self.assertTextarea(geom, form.as_p())
+        self.assertMapWidget(form, "CurvePolygon")
+
+        # form with any other geometry type data is invalid
+        for invalid in [
+            geo for key, geo in self.geometries.items() if key != "curvepolygon"
+        ]:
+            with self.subTest(wkt=invalid.wkt):
+                form = CurvePolygonForm(data={"c": invalid.wkt})
+                self.assertFalse(form.is_valid())
+
+    @skipIf(geos_version_tuple() < (3, 13, 0), "GEOS curved support requires 3.13.0+")
+    def test_multicurvefield(self):
+        class MultiCurveForm(forms.Form):
+            c = forms.MultiCurveField()
+
+        # empty form is invalid
+        self.assertFalse(MultiCurveForm().is_valid())
+
+        geom = self.geometries["multicurve"]
+        form = MultiCurveForm(data={"c": geom})
+        self.assertTextarea(geom, form.as_p())
+        self.assertMapWidget(form, "MultiCurve")
+
+        # form with any other geometry type data is invalid
+        for invalid in [
+            geo for key, geo in self.geometries.items() if key != "multicurve"
+        ]:
+            with self.subTest(wkt=invalid.wkt):
+                form = MultiCurveForm(data={"c": invalid.wkt})
+                self.assertFalse(form.is_valid())
+
+    @skipIf(geos_version_tuple() < (3, 13, 0), "GEOS curved support requires 3.13.0+")
+    def test_multisurfacefield(self):
+        class MultiSurfaceForm(forms.Form):
+            c = forms.MultiSurfaceField()
+
+        # empty form is invalid
+        self.assertFalse(MultiSurfaceForm().is_valid())
+
+        geom = self.geometries["multisurface"]
+        form = MultiSurfaceForm(data={"c": geom})
+        self.assertTextarea(geom, form.as_p())
+        self.assertMapWidget(form, "MultiSurface")
+
+        # form with any other geometry type data is invalid
+        for invalid in [
+            geo for key, geo in self.geometries.items() if key != "multisurface"
+        ]:
+            with self.subTest(wkt=invalid.wkt):
+                form = MultiSurfaceForm(data={"c": invalid.wkt})
+                self.assertFalse(form.is_valid())
 
 
 class OSMWidgetTest(SimpleTestCase):
