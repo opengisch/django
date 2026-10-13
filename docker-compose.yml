@@ -1,4 +1,23 @@
 services:
+  postgis:
+    image: postgis/postgis:18-3.6
+    environment:
+      POSTGRES_USER: "${POSTGIS_USER:-django}"
+      POSTGRES_PASSWORD: "${POSTGIS_PASSWORD:-django}"
+      POSTGRES_DB: "${POSTGIS_NAME:-geodjango}"
+    volumes:
+      - type: volume
+        source: django-postgis-data
+        target: /var/lib/postgresql
+      - type: bind
+        source: docker/postgis-init-other-db.sh
+        target: /docker-entrypoint-initdb.d/postgis-init-other-db.sh
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGIS_USER:-django} -d ${POSTGIS_NAME:-geodjango}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   django_geos3_12_3: &default-django
     build:
       context: .
@@ -9,6 +28,10 @@ services:
         GEOS_VERSION: "${GEOS_VERSION:-3.12.3}"
         USER_ID: "${USER_ID:-1000}"
         GROUP_ID: "${GROUP_ID:-1000}"
+
+    depends_on:
+      postgis:
+        condition: service_healthy
 
     working_dir: /workspace
 
@@ -37,6 +60,11 @@ services:
       UV_CACHE_DIR: /home/django/.cache/uv
       UV_PROJECT_ENVIRONMENT: /workspace/.venv
       UV_LINK_MODE: copy
+      POSTGIS_HOST: postgis
+      POSTGIS_PORT: "5432"
+      POSTGIS_USER: "${POSTGIS_USER:-django}"
+      POSTGIS_PASSWORD: "${POSTGIS_PASSWORD:-django}"
+      POSTGIS_NAME: "${POSTGIS_NAME:-geodjango}"
 
     # This repository is the Django framework itself, not a Django project, so
     # there is no manage.py to run. Keep the development container open by
@@ -156,3 +184,4 @@ volumes:
   django-venv-geos3-14-0:
   django-venv-geos3-14-1:
   django-venv-geos3-15-0:
+  django-postgis-data:

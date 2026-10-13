@@ -32,6 +32,9 @@ uv pip install \
     --requirements tests/requirements/py3.txt
 uv pip install \
     --python "${VENV_PATH}/bin/python" \
+    --requirements tests/requirements/postgres.txt
+uv pip install \
+    --python "${VENV_PATH}/bin/python" \
     tox \
     pre-commit
 
