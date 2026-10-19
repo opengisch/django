@@ -372,6 +372,11 @@ backends.
   CurvePolygon, CompoundCurve, CircularString, MultiSurface,
   and MultiCurve.
 
+* On GEOS 3.15.0+, curved geometries can be automatically converted to linear
+  geometries and vice versa for operations that don't support curved geometries.
+  The conversion parameters can be configured using the
+  :setting:`GEOS_CURVE_TO_LINE` and :setting:`GEOS_LINE_TO_CURVE` settings.
+
 CSP
 ---
 

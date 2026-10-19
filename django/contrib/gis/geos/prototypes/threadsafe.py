@@ -1,7 +1,15 @@
 import threading
+from ctypes import c_void_p
 
 from django.contrib.gis.geos.base import GEOSBase
-from django.contrib.gis.geos.libgeos import CONTEXT_PTR, error_h, lgeos, notice_h
+from django.contrib.gis.geos.libgeos import (
+    CONTEXT_PTR,
+    error_h,
+    geos_version_tuple,
+    lgeos,
+    notice_h,
+)
+from django.core.exceptions import ImproperlyConfigured
 
 
 class GEOSContextHandle(GEOSBase):
@@ -14,6 +22,61 @@ class GEOSContextHandle(GEOSBase):
         self.ptr = lgeos.GEOS_init_r()
         lgeos.GEOSContext_setNoticeHandler_r(self.ptr, notice_h)
         lgeos.GEOSContext_setErrorHandler_r(self.ptr, error_h)
+
+        # GEOS 3.15.0+ introduces the CurveToLine/LineToCurve conversion.
+        if geos_version_tuple() >= (3, 15, 0):
+            try:
+                from django.conf import settings
+
+                convert_curve_to_line = settings.GEOS_CURVE_TO_LINE
+            except (AttributeError, ImportError, ImproperlyConfigured, OSError):
+                convert_curve_to_line = False
+
+            try:
+                from django.conf import settings
+
+                convert_line_to_curve = settings.GEOS_LINE_TO_CURVE
+
+                if not convert_curve_to_line and convert_line_to_curve:
+                    raise ImproperlyConfigured(
+                        "GEOS_LINE_TO_CURVE cannot be enabled if "
+                        "GEOS_CURVE_TO_LINE is disabled."
+                    )
+            except (AttributeError, ImportError, ImproperlyConfigured, OSError):
+                convert_line_to_curve = False
+        else:
+            convert_curve_to_line = False
+            convert_line_to_curve = False
+
+        # Set setCurveToLineParams_r and setLineToCurveParams with default
+        # params to the context.
+        # This ensures that if a GEOS method does not support curves, it will
+        # linearize any curve geometry input if needed, and will also convert
+        # any linear output to a curved type, if the inputs were converted to
+        # curves.
+        if convert_curve_to_line:
+            lgeos.GEOSCurveToLineParams_create.restype = c_void_p
+            lgeos.GEOSContext_setCurveToLineParams_r.argtypes = [CONTEXT_PTR, c_void_p]
+            lgeos.GEOSCurveToLineParams_destroy.argtypes = [c_void_p]
+
+            curveToLineParams = lgeos.GEOSCurveToLineParams_create()
+            lgeos.GEOSContext_setCurveToLineParams_r(self.ptr, curveToLineParams)
+            lgeos.GEOSCurveToLineParams_destroy(curveToLineParams)
+
+            # Unless we set GEOS_CURVE_TO_LINE to True, curves will stay linear
+            # in the result of the function, even if the input geometries
+            # contain curves.
+            if convert_line_to_curve:
+                lgeos.GEOSLineToCurveParams_create.restype = c_void_p
+                lgeos.GEOSContext_setLineToCurveParams_r.argtypes = [
+                    CONTEXT_PTR,
+                    c_void_p,
+                ]
+                lgeos.GEOSLineToCurveParams_destroy.argtypes = [c_void_p]
+
+                lineToCurveParams = lgeos.GEOSLineToCurveParams_create()
+                lgeos.GEOSContext_setLineToCurveParams_r(self.ptr, lineToCurveParams)
+                lgeos.GEOSLineToCurveParams_destroy(lineToCurveParams)
 
 
 # Defining a thread-local object and creating an instance
