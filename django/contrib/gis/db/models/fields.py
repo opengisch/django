@@ -7,13 +7,18 @@ from django.contrib.gis.gdal.raster.const import VSI_FILESYSTEM_PREFIX
 from django.contrib.gis.gdal.raster.source import DisallowedRasterLookup
 from django.contrib.gis.geometry import json_regex
 from django.contrib.gis.geos import (
+    CircularString,
+    CompoundCurve,
+    CurvePolygon,
     GeometryCollection,
     GEOSException,
     GEOSGeometry,
     LineString,
+    MultiCurve,
     MultiLineString,
     MultiPoint,
     MultiPolygon,
+    MultiSurface,
     Point,
     Polygon,
 )
@@ -258,6 +263,7 @@ class GeometryField(BaseSpatialField):
     # The OpenGIS Geometry name.
     geom_type = "GEOMETRY"
     geom_class = None
+    accepted_geom_class = None
 
     def __init__(
         self,
@@ -330,7 +336,11 @@ class GeometryField(BaseSpatialField):
         setattr(
             cls,
             self.attname,
-            SpatialProxy(self.geom_class or GEOSGeometry, self, load_func=GEOSGeometry),
+            SpatialProxy(
+                self.accepted_geom_class or self.geom_class or GEOSGeometry,
+                self,
+                load_func=GEOSGeometry,
+            ),
         )
 
     def formfield(self, **kwargs):
@@ -406,6 +416,45 @@ class GeometryCollectionField(GeometryField):
     geom_class = GeometryCollection
     form_class = forms.GeometryCollectionField
     description = _("Geometry collection")
+
+
+class CircularStringField(GeometryField):
+    geom_type = "CIRCULARSTRING"
+    geom_class = CircularString
+    form_class = forms.CircularStringField
+    description = _("Circular string")
+
+
+class CompoundCurveField(GeometryField):
+    geom_type = "COMPOUNDCURVE"
+    geom_class = CompoundCurve
+    accepted_geom_class = (CompoundCurve, LineString)
+    form_class = forms.CompoundCurveField
+    description = _("Compound curve")
+
+
+class CurvePolygonField(GeometryField):
+    geom_type = "CURVEPOLYGON"
+    geom_class = CurvePolygon
+    accepted_geom_class = (CurvePolygon, Polygon)
+    form_class = forms.CurvePolygonField
+    description = _("Curve polygon")
+
+
+class MultiCurveField(GeometryField):
+    geom_type = "MULTICURVE"
+    geom_class = MultiCurve
+    accepted_geom_class = (MultiCurve, MultiLineString)
+    form_class = forms.MultiCurveField
+    description = _("Multi curve")
+
+
+class MultiSurfaceField(GeometryField):
+    geom_type = "MULTISURFACE"
+    geom_class = MultiSurface
+    accepted_geom_class = (MultiSurface, MultiPolygon)
+    form_class = forms.MultiSurfaceField
+    description = _("Multi surface")
 
 
 class ExtentField(Field):
