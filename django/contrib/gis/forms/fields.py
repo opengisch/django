@@ -150,3 +150,23 @@ class PolygonField(GeometryField):
 
 class MultiPolygonField(GeometryField):
     geom_type = "MULTIPOLYGON"
+
+
+class CircularStringField(GeometryField):
+    geom_type = "CIRCULARSTRING"
+
+
+class CompoundCurveField(GeometryField):
+    geom_type = "COMPOUNDCURVE"
+
+
+class CurvePolygonField(GeometryField):
+    geom_type = "CURVEPOLYGON"
+
+
+class MultiCurveField(GeometryField):
+    geom_type = "MULTICURVE"
+
+
+class MultiSurfaceField(GeometryField):
+    geom_type = "MULTISURFACE"

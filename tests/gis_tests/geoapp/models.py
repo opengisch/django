@@ -125,3 +125,23 @@ class Lines(models.Model):
 
 class GeometryCollectionModel(models.Model):
     geom = models.GeometryCollectionField(max_geom_collections=5)
+
+
+class CircularStringModel(models.Model):
+    geom = models.CircularStringField()
+
+
+class CompoundCurveModel(models.Model):
+    geom = models.CompoundCurveField()
+
+
+class CurvePolygonModel(models.Model):
+    geom = models.CurvePolygonField()
+
+
+class MultiCurveModel(models.Model):
+    geom = models.MultiCurveField()
+
+
+class MultiSurfaceModel(models.Model):
+    geom = models.MultiSurfaceField()

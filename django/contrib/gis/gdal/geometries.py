@@ -743,15 +743,27 @@ class Polygon(OGRGeometry):
 
 
 class CircularString(LineString):
-    geos_support = False
+    @property
+    def geos_support(self):
+        from django.contrib.gis.geos.libgeos import geos_version_tuple
+
+        return geos_version_tuple() >= (3, 13, 0)
 
 
 class CurvePolygon(Polygon):
-    geos_support = False
+    @property
+    def geos_support(self):
+        from django.contrib.gis.geos.libgeos import geos_version_tuple
+
+        return geos_version_tuple() >= (3, 13, 0)
 
 
 class CompoundCurve(OGRGeometry):
-    geos_support = False
+    @property
+    def geos_support(self):
+        from django.contrib.gis.geos.libgeos import geos_version_tuple
+
+        return geos_version_tuple() >= (3, 13, 0)
 
 
 # Geometry Collection base class.
@@ -816,11 +828,19 @@ class MultiPolygon(GeometryCollection):
 
 
 class MultiSurface(GeometryCollection):
-    geos_support = False
+    @property
+    def geos_support(self):
+        from django.contrib.gis.geos.libgeos import geos_version_tuple
+
+        return geos_version_tuple() >= (3, 13, 0)
 
 
 class MultiCurve(GeometryCollection):
-    geos_support = False
+    @property
+    def geos_support(self):
+        from django.contrib.gis.geos.libgeos import geos_version_tuple
+
+        return geos_version_tuple() >= (3, 13, 0)
 
 
 # Class mapping dictionary (using the OGRwkbGeometryType as the key)
