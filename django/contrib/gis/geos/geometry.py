@@ -12,7 +12,11 @@ from django.contrib.gis.geos import prototypes as capi
 from django.contrib.gis.geos.base import GEOSBase
 from django.contrib.gis.geos.coordseq import GEOSCoordSeq
 from django.contrib.gis.geos.error import GEOSException
-from django.contrib.gis.geos.libgeos import GEOM_PTR, geos_version_tuple
+from django.contrib.gis.geos.libgeos import (
+    GEOM_PTR,
+    geos_version_tuple,
+    has_curved_support,
+)
 from django.contrib.gis.geos.mutable_list import ListMixin
 from django.contrib.gis.geos.prepared import PreparedGeometry
 from django.contrib.gis.geos.prototypes.io import (
@@ -68,7 +72,7 @@ class GEOSGeometryBase(GEOSBase):
                 6: MultiPolygon,
                 7: GeometryCollection,
             }
-            if geos_version_tuple() >= (3, 13, 0):
+            if has_curved_support():
                 from .curved import (
                     CircularString,
                     CompoundCurve,

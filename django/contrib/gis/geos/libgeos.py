@@ -7,6 +7,7 @@ This module also houses GEOS Pointer utilities, including
 get_pointer_arr(), and GEOM_PTR.
 """
 
+import functools
 import logging
 import os
 from ctypes import CDLL, CFUNCTYPE, POINTER, Structure, c_char_p
@@ -177,3 +178,13 @@ def geos_version():
 def geos_version_tuple():
     """Return the GEOS version as a tuple (major, minor, subminor)."""
     return get_version_tuple(geos_version().decode())
+
+
+@functools.cache
+def has_curved_support():
+    """Check and cache whether GEOS supports curved geometries.
+
+    Caching is needed as the function is called every time a curved geometry
+    is instantiated.
+    """
+    return geos_version_tuple() >= (3, 13, 0)

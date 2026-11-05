@@ -748,25 +748,25 @@ class Polygon(OGRGeometry):
 class CircularString(LineString):
     @property
     def geos_support(self):
-        from django.contrib.gis.geos.libgeos import geos_version_tuple
+        from django.contrib.gis.geos.libgeos import has_curved_support
 
-        return geos_version_tuple() >= (3, 13, 0)
+        return has_curved_support()
 
 
 class CurvePolygon(Polygon):
     @property
     def geos_support(self):
-        from django.contrib.gis.geos.libgeos import geos_version_tuple
+        from django.contrib.gis.geos.libgeos import has_curved_support
 
-        return geos_version_tuple() >= (3, 13, 0)
+        return has_curved_support()
 
 
 class CompoundCurve(OGRGeometry):
     @property
     def geos_support(self):
-        from django.contrib.gis.geos.libgeos import geos_version_tuple
+        from django.contrib.gis.geos.libgeos import has_curved_support
 
-        return geos_version_tuple() >= (3, 13, 0)
+        return has_curved_support()
 
 
 # Geometry Collection base class.
@@ -833,17 +833,17 @@ class MultiPolygon(GeometryCollection):
 class MultiSurface(GeometryCollection):
     @property
     def geos_support(self):
-        from django.contrib.gis.geos.libgeos import geos_version_tuple
+        from django.contrib.gis.geos.libgeos import has_curved_support
 
-        return geos_version_tuple() >= (3, 13, 0)
+        return has_curved_support()
 
 
 class MultiCurve(GeometryCollection):
     @property
     def geos_support(self):
-        from django.contrib.gis.geos.libgeos import geos_version_tuple
+        from django.contrib.gis.geos.libgeos import has_curved_support
 
-        return geos_version_tuple() >= (3, 13, 0)
+        return has_curved_support()
 
 
 # Class mapping dictionary (using the OGRwkbGeometryType as the key)

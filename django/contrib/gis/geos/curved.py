@@ -12,13 +12,17 @@ from django.contrib.gis.geos import prototypes as capi
 from django.contrib.gis.geos.collections import GeometryCollection
 from django.contrib.gis.geos.error import GEOSException
 from django.contrib.gis.geos.geometry import GEOSGeometry
-from django.contrib.gis.geos.libgeos import GEOM_PTR, geos_version_tuple
+from django.contrib.gis.geos.libgeos import (
+    GEOM_PTR,
+    geos_version_tuple,
+    has_curved_support,
+)
 from django.contrib.gis.geos.linestring import LinearRing, LineString
 from django.contrib.gis.geos.polygon import Polygon
 
 
 def _check_curved_support():
-    if geos_version_tuple() < (3, 13, 0):
+    if not has_curved_support():
         raise GEOSException(
             "Curved geometry types require GEOS >= 3.13.0. "
             "The installed GEOS version is %s.%s.%s." % geos_version_tuple()
