@@ -24,3 +24,8 @@ from .libgeos import geos_version  # NOQA
 from .linestring import LinearRing, LineString  # NOQA
 from .point import Point  # NOQA
 from .polygon import Polygon  # NOQA
+from .prototypes.threadsafe import (  # NOQA
+    GEOSCurveToLineParams,
+    GEOSLineToCurveParams,
+    geos_curve_conversion,
+)

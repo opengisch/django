@@ -938,7 +938,11 @@ Curved Geometries
 
 .. versionadded:: 6.2
 
-GEOS 3.13 and later support curved geometries.
+GEOS 3.13 and later support curved geometries. Spatial algorithms (e.g.
+area, length, intersection) are not available for curved types; use
+:func:`geos_curve_conversion` to convert a curved geometry to its
+linear approximation before using it with an operation that doesn't
+support curves directly.
 
 ``CircularString``
 ------------------
@@ -1300,6 +1304,47 @@ include the SRID value (in other words, EWKB).
 
 .. rubric:: Footnotes
 .. [#fnogc] *See* `PostGIS EWKB, EWKT and Canonical Forms <https://postgis.net/docs/using_postgis_dbmanagement.html#EWKB_EWKT>`_, PostGIS documentation at Ch. 4.1.2.
+
+.. _curve-line-conversion:
+
+Curve and Line Conversion
+==========================
+
+.. versionadded:: 6.2
+
+On GEOS 3.15.0 and later, curved geometries (``CircularString``,
+``CompoundCurve``, ``CurvePolygon``, ``MultiCurve``, and ``MultiSurface``)
+can be automatically linearized for operations  that don't support curved
+geometries directly, and the resulting linear geometries can optionally be
+converted back to curves.
+
+.. function:: geos_curve_conversion(curve_to_line_params=True, line_to_curve_params=True)
+
+    A context manager that enables curve/line conversion on the current
+    thread's GEOS context for the duration of the ``with`` block, restoring
+    the previous state on exit. Requires GEOS 3.15.0 or later.
+
+    ``curve_to_line_params`` and ``line_to_curve_params`` each accept:
+
+    * ``True`` (the default) to enable the conversion with default
+      parameters.
+    * ``None`` to leave the conversion disabled.
+    * A :class:`GEOSCurveToLineParams` or :class:`GEOSLineToCurveParams`
+      instance, respectively, to enable the conversion with custom
+      tolerances.
+
+.. class:: GEOSCurveToLineParams(max_step_degrees=None, max_deviation=None)
+
+    Parameters controlling how curved geometries are linearized by
+    :func:`geos_curve_conversion`. ``max_step_degrees`` and
+    ``max_deviation`` use the GEOS library default when left unset.
+
+.. class:: GEOSLineToCurveParams(radius_tolerance=None, max_step_degrees=None, max_angle_difference_degrees=None)
+
+    Parameters controlling how linearized geometries are converted back to
+    curves by :func:`geos_curve_conversion`. ``radius_tolerance``,
+    ``max_step_degrees``, and ``max_angle_difference_degrees`` use the GEOS
+    library default when left unset.
 
 Settings
 ========

@@ -11,6 +11,7 @@ from django.contrib.gis.geos import (
     CompoundCurve,
     CurvePolygon,
     GeometryCollection,
+    GEOSCurveToLineParams,
     GEOSGeometry,
     LinearRing,
     LineString,
@@ -22,6 +23,7 @@ from django.contrib.gis.geos import (
     Point,
     Polygon,
     fromstr,
+    geos_curve_conversion,
 )
 from django.contrib.gis.geos.error import GEOSException
 from django.core.exceptions import SuspiciousOperation
@@ -387,6 +389,11 @@ class CurvedGeomsTest(TestCase):
             'Error encountered on GEOS C predicate function "GEOSEquals_r"',
         ):
             obj.geom.equals(geom)
+
+        if geos_version_tuple() >= (3, 15, 0):
+            with geos_curve_conversion(curve_to_line_params=GEOSCurveToLineParams()):
+                self.assertIs(obj.geom.equals(geom), True)
+
         self.assertIs(obj.geom.equals_exact(geom), True)
         self.assertIs(obj.geom.equals_identical(geom), True)
 
@@ -408,6 +415,11 @@ class CurvedGeomsTest(TestCase):
             'Error encountered on GEOS C predicate function "GEOSEquals_r"',
         ):
             obj.geom.equals(geom)
+
+        if geos_version_tuple() >= (3, 15, 0):
+            with geos_curve_conversion(curve_to_line_params=GEOSCurveToLineParams()):
+                self.assertIs(obj.geom.equals(geom), True)
+
         self.assertIs(obj.geom.equals_exact(geom), True)
         self.assertIs(obj.geom.equals_identical(geom), True)
 
@@ -427,6 +439,11 @@ class CurvedGeomsTest(TestCase):
             'Error encountered on GEOS C predicate function "GEOSEquals_r"',
         ):
             obj.geom.equals(geom)
+
+        if geos_version_tuple() >= (3, 15, 0):
+            with geos_curve_conversion(curve_to_line_params=GEOSCurveToLineParams()):
+                self.assertIs(obj.geom.equals(geom), True)
+
         self.assertIs(obj.geom.equals_exact(geom), True)
         self.assertIs(obj.geom.equals_identical(geom), True)
 
@@ -446,6 +463,11 @@ class CurvedGeomsTest(TestCase):
             'Error encountered on GEOS C predicate function "GEOSEquals_r"',
         ):
             obj.geom.equals(geom)
+
+        if geos_version_tuple() >= (3, 15, 0):
+            with geos_curve_conversion(curve_to_line_params=GEOSCurveToLineParams()):
+                self.assertIs(obj.geom.equals(geom), True)
+
         # Unfortunately, equals_exact() and equals_identical() return False
         # before GEOS 3.15.0  when the CurvePolygon has a LinearRing as one
         # of its components.
@@ -472,6 +494,11 @@ class CurvedGeomsTest(TestCase):
             'Error encountered on GEOS C predicate function "GEOSEquals_r"',
         ):
             obj.geom.equals(geom)
+
+        if geos_version_tuple() >= (3, 15, 0):
+            with geos_curve_conversion(curve_to_line_params=GEOSCurveToLineParams()):
+                self.assertIs(obj.geom.equals(geom), True)
+
         self.assertIs(obj.geom.equals_exact(geom), True)
         self.assertIs(obj.geom.equals_identical(geom), True)
 
@@ -494,6 +521,11 @@ class CurvedGeomsTest(TestCase):
             'Error encountered on GEOS C predicate function "GEOSEquals_r"',
         ):
             obj.geom.equals(geom)
+
+        if geos_version_tuple() >= (3, 15, 0):
+            with geos_curve_conversion(curve_to_line_params=GEOSCurveToLineParams()):
+                self.assertIs(obj.geom.equals(geom), True)
+
         self.assertIs(obj.geom.equals_exact(geom), True)
         self.assertIs(obj.geom.equals_identical(geom), True)
 
@@ -516,6 +548,11 @@ class CurvedGeomsTest(TestCase):
             'Error encountered on GEOS C predicate function "GEOSEquals_r"',
         ):
             obj.geom.equals(geom)
+
+        if geos_version_tuple() >= (3, 15, 0):
+            with geos_curve_conversion(curve_to_line_params=GEOSCurveToLineParams()):
+                self.assertIs(obj.geom.equals(geom), True)
+
         # Unfortunately, equals_exact() and equals_identical() return False
         # before GEOS 3.15.0  when the CurvePolygon has a LinearRing as one
         # of its components.
