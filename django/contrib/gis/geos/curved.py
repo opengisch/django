@@ -57,6 +57,7 @@ class CompoundCurve(GeometryCollection):
 
     A compound curve is a contiguous sequence of LineStrings and/or
     CircularStrings. Adjacent components must share their endpoints.
+    Accessing them (length, indexing, iteration) requires GEOS >= 3.15.
 
     Example:
      >>> from django.contrib.gis.geos import CompoundCurve, LineString
@@ -72,8 +73,16 @@ class CompoundCurve(GeometryCollection):
         _check_curved_support()
         super().__init__(*args, **kwargs)
 
+    def __bool__(self):
+        return not self.empty
+
     def __len__(self):
         "Return the number of curves in this CompoundCurve."
+        if geos_version_tuple() < (3, 15, 0):
+            raise GEOSException(
+                "Accessing the curves of a CompoundCurve requires GEOS >= 3.15.0. "
+                "The installed GEOS version is %s.%s.%s." % geos_version_tuple()
+            )
         return capi.get_num_curves(self.ptr)
 
     def _create_collection(self, length, items):

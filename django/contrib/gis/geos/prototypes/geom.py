@@ -93,7 +93,7 @@ create_curvepolygon = GeomOutput(
 )
 create_empty_curvepolygon = GeomOutput("GEOSGeom_createEmptyCurvePolygon", argtypes=[])
 
-# CompoundCurve routines (require GEOS >= 3.13).
+# CompoundCurve routines (require GEOS >= 3.15).
 get_curven = GeomOutput("GEOSGetCurveN", argtypes=[GEOM_PTR, c_int])
 get_num_curves = IntFromGeom("GEOSGetNumCurves")
 

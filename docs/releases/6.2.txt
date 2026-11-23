@@ -370,7 +370,8 @@ backends.
 
 * :mod:`django.contrib.gis.geos` now supports curved geometries, including
   CurvePolygon, CompoundCurve, CircularString, MultiSurface,
-  and MultiCurve.
+  and MultiCurve. Accessing the curves of a CompoundCurve (its length,
+  indexing, and iteration) requires GEOS 3.15.0+.
 
 * On GEOS 3.15.0+, curved geometries can be automatically converted to linear
   geometries and vice versa for operations that don't support curved geometries.
