@@ -10,11 +10,14 @@ from unittest import mock, skipIf
 
 from django.contrib.gis import gdal
 from django.contrib.gis.geos import (
+    CircularString,
+    CompoundCurve,
     GeometryCollection,
     GEOSException,
     GEOSGeometry,
     LinearRing,
     LineString,
+    MultiCurve,
     MultiLineString,
     MultiPoint,
     MultiPolygon,
@@ -566,6 +569,69 @@ class GEOSTest(SimpleTestCase, TestDataMixin):
                 self.assertEqual(
                     ml, MultiLineString(*tuple(LineString(s.tuple) for s in ml))
                 )
+
+    @skipIf(geos_version_tuple() < (3, 15), "GEOS >= 3.15.0 is required")
+    def test_compoundcurve(self):
+        cc = CompoundCurve(
+            LineString((0, 0), (1, 0)),
+            CircularString((1, 0), (2, 1), (3, 0)),
+            srid=4326,
+        )
+        line = LineString((0, 0), (1, 0), srid=4326)
+        arc = CircularString((1, 0), (2, 1), (3, 0), srid=4326)
+        self.assertEqual(len(cc), 2)
+        self.assertEqual([type(g) for g in cc], [LineString, CircularString])
+        self.assertEqual([g.srid for g in cc], [4326, 4326])
+        self.assertEqual(list(cc), [line, arc])
+        self.assertEqual(cc[-1], arc)
+        self.assertEqual(cc[-2], line)
+        with self.assertRaisesMessage(IndexError, "invalid index: 2"):
+            cc[2]
+        coords = (((0, 0), (1, 0)), ((1, 0), (2, 1), (3, 0)))
+        self.assertEqual(cc.coords, coords)
+        self.assertEqual(cc.tuple, coords)
+        self.assertEqual(MultiCurve(cc).coords, (coords,))
+
+    @skipIf(geos_version_tuple() < (3, 15), "GEOS >= 3.15.0 is required")
+    def test_compoundcurve_edit(self):
+        line = LineString((0, 0), (1, 0))
+        cc = CompoundCurve(line, CircularString((1, 0), (2, 1), (3, 0)))
+        arc = CircularString((1, 0), (2, -1), (3, 0))
+        cc[1] = arc
+        self.assertEqual(cc[1], arc)
+        cc.append(LineString((3, 0), (4, 0)))
+        self.assertEqual(len(cc), 3)
+        # Without the arc, the curve would not be contiguous.
+        with self.assertRaises(GEOSException):
+            del cc[1]
+        self.assertEqual(len(cc), 3)
+        del cc[-1]
+        self.assertEqual(list(cc), [line, arc])
+
+    @skipIf(geos_version_tuple() < (3, 13), "GEOS >= 3.13.0 is required")
+    def test_compoundcurve_empty(self):
+        for cc in (CompoundCurve(), fromstr("COMPOUNDCURVE EMPTY")):
+            with self.subTest(cc=cc):
+                self.assertIs(cc.empty, True)
+                self.assertIs(bool(cc), False)
+        self.assertIs(bool(fromstr("COMPOUNDCURVE((0 0, 1 0))")), True)
+
+    @skipIf(geos_version_tuple() < (3, 15), "GEOS >= 3.15.0 is required")
+    def test_compoundcurve_empty_curves(self):
+        cc = CompoundCurve()
+        self.assertEqual(len(cc), 0)
+        self.assertEqual(cc.coords, ())
+        with self.assertRaisesMessage(IndexError, "invalid index: 0"):
+            cc[0]
+
+    @skipIf(
+        not (3, 13) <= geos_version_tuple() < (3, 15),
+        "GEOS 3.13 or 3.14 is required",
+    )
+    def test_compoundcurve_curves_unsupported(self):
+        msg = "Accessing the curves of a CompoundCurve requires GEOS >= 3.15.0."
+        with self.assertRaisesMessage(GEOSException, msg):
+            len(CompoundCurve(LineString((0, 0), (1, 0))))
 
     def test_linearring(self):
         "Testing LinearRing objects."
