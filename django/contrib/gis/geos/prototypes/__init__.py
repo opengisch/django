@@ -44,12 +44,14 @@ from django.contrib.gis.geos.prototypes.geom import (  # NOQA
     geos_set_srid,
     geos_type,
     geos_typeid,
+    get_curven,
     get_dims,
     get_extring,
     get_geomn,
     get_intring,
     get_nrings,
     get_num_coords,
+    get_num_curves,
     get_num_geoms,
 )
 from django.contrib.gis.geos.prototypes.misc import *  # NOQA

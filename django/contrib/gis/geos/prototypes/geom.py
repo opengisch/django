@@ -93,6 +93,10 @@ create_curvepolygon = GeomOutput(
 )
 create_empty_curvepolygon = GeomOutput("GEOSGeom_createEmptyCurvePolygon", argtypes=[])
 
+# CompoundCurve routines (require GEOS >= 3.13).
+get_curven = GeomOutput("GEOSGetCurveN", argtypes=[GEOM_PTR, c_int])
+get_num_curves = IntFromGeom("GEOSGetNumCurves")
+
 # Ring routines
 get_extring = GeomOutput("GEOSGetExteriorRing", argtypes=[GEOM_PTR])
 get_intring = GeomOutput("GEOSGetInteriorRingN", argtypes=[GEOM_PTR, c_int])

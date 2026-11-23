@@ -72,6 +72,10 @@ class CompoundCurve(GeometryCollection):
         _check_curved_support()
         super().__init__(*args, **kwargs)
 
+    def __len__(self):
+        "Return the number of curves in this CompoundCurve."
+        return capi.get_num_curves(self.ptr)
+
     def _create_collection(self, length, items):
         if not length:
             return capi.create_empty_compoundcurve()
@@ -79,6 +83,9 @@ class CompoundCurve(GeometryCollection):
             *[capi.geom_clone(getattr(g, "ptr", g)) for g in items]
         )
         return capi.create_compoundcurve(geoms, length)
+
+    def _get_single_internal(self, index):
+        return capi.get_curven(self.ptr, index)
 
 
 class CurvePolygon(Polygon):
