@@ -7,13 +7,18 @@ from django.contrib.gis.gdal.raster.const import VSI_FILESYSTEM_PREFIX
 from django.contrib.gis.gdal.raster.source import DisallowedRasterLookup
 from django.contrib.gis.geometry import json_regex
 from django.contrib.gis.geos import (
+    CircularString,
+    CompoundCurve,
+    CurvePolygon,
     GeometryCollection,
     GEOSException,
     GEOSGeometry,
     LineString,
+    MultiCurve,
     MultiLineString,
     MultiPoint,
     MultiPolygon,
+    MultiSurface,
     Point,
     Polygon,
 )
@@ -341,8 +346,12 @@ class GeometryField(BaseSpatialField):
             "max_geom_collections": self.max_geom_collections,
             **kwargs,
         }
-        if self.dim > 2 and not getattr(
-            defaults["form_class"].widget, "supports_3d", False
+        # Fall back to a textarea when the widget can't edit 3D or curved
+        # geometries.
+        widget = defaults["form_class"].widget
+        if (self.dim > 2 and not getattr(widget, "supports_3d", False)) or (
+            isinstance(self, BaseCurvedGeometryField)
+            and not getattr(widget, "supports_curved_geometries", False)
         ):
             defaults.setdefault("widget", forms.Textarea)
         return super().formfield(**defaults)
@@ -406,6 +415,59 @@ class GeometryCollectionField(GeometryField):
     geom_class = GeometryCollection
     form_class = forms.GeometryCollectionField
     description = _("Geometry collection")
+
+
+class BaseCurvedGeometryField(GeometryField):
+    def _check_connection(self, connection):
+        # Ensure curved fields are used only on backends with curved support.
+        if (
+            not connection.features.gis_enabled
+            or not connection.features.supports_curved_geometries
+        ):
+            raise ImproperlyConfigured(
+                f"Curved geometry field {self.geom_type} requires a backend "
+                "with curved geometry support."
+            )
+
+    def db_type(self, connection):
+        self._check_connection(connection)
+
+        return super().db_type(connection)
+
+
+class CircularStringField(BaseCurvedGeometryField):
+    geom_type = "CIRCULARSTRING"
+    geom_class = CircularString
+    form_class = forms.CircularStringField
+    description = _("Circular string")
+
+
+class CompoundCurveField(BaseCurvedGeometryField):
+    geom_type = "COMPOUNDCURVE"
+    geom_class = CompoundCurve
+    form_class = forms.CompoundCurveField
+    description = _("Compound curve")
+
+
+class CurvePolygonField(BaseCurvedGeometryField):
+    geom_type = "CURVEPOLYGON"
+    geom_class = CurvePolygon
+    form_class = forms.CurvePolygonField
+    description = _("Curve polygon")
+
+
+class MultiCurveField(BaseCurvedGeometryField):
+    geom_type = "MULTICURVE"
+    geom_class = MultiCurve
+    form_class = forms.MultiCurveField
+    description = _("Multi curve")
+
+
+class MultiSurfaceField(BaseCurvedGeometryField):
+    geom_type = "MULTISURFACE"
+    geom_class = MultiSurface
+    form_class = forms.MultiSurfaceField
+    description = _("Multi surface")
 
 
 class ExtentField(Field):

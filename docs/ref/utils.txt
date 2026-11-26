@@ -154,8 +154,8 @@ The functions defined in this module share the following properties:
 
     Parses a string and returns a :class:`datetime.time`.
 
-    UTC offsets aren't supported; if ``value`` describes one, the result is
-    ``None``.
+    UTC offsets aren't supported; if ``value`` describes one, the offset is
+    ignored and a naive :class:`datetime.time` is returned.
 
 .. function:: parse_datetime(value)
 
@@ -584,6 +584,11 @@ compatibility
         y = person.get_friends()  # calls again
         z = person.friends  # does not call
         x is z  # is True
+
+    .. deprecated:: 6.2
+
+        This decorator is deprecated in favor of
+        :func:`functools.cached_property`.
 
 .. class:: classproperty(method=None)
 

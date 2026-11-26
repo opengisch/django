@@ -12,6 +12,9 @@ class GeometryField(forms.Field):
     This is the basic form field for a Geometry. Any textual input that is
     accepted by GEOSGeometry is accepted by this form. By default,
     this includes WKT, HEXEWKB, WKB (in a buffer), and GeoJSON.
+
+    The widget's deserialize() method will raise SuspiciousOperation if it
+    detects a URL-based coordinate reference system (CRS) in a GeoJSON value.
     """
 
     widget = OpenLayersWidget
@@ -150,3 +153,23 @@ class PolygonField(GeometryField):
 
 class MultiPolygonField(GeometryField):
     geom_type = "MULTIPOLYGON"
+
+
+class CircularStringField(GeometryField):
+    geom_type = "CIRCULARSTRING"
+
+
+class CompoundCurveField(GeometryField):
+    geom_type = "COMPOUNDCURVE"
+
+
+class CurvePolygonField(GeometryField):
+    geom_type = "CURVEPOLYGON"
+
+
+class MultiCurveField(GeometryField):
+    geom_type = "MULTICURVE"
+
+
+class MultiSurfaceField(GeometryField):
+    geom_type = "MULTISURFACE"

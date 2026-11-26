@@ -102,6 +102,7 @@ counterintuitive
 criticals
 cron
 crontab
+crs
 cryptographic
 cryptographically
 csrfmiddlewaretoken
@@ -256,6 +257,7 @@ Libera
 lifecycle
 lifecycles
 linearize
+linearized
 linestring
 linework
 linter
@@ -431,6 +433,7 @@ renderers
 repo
 reportable
 reprojection
+reraised
 reraising
 reST
 reStructuredText

@@ -1,4 +1,5 @@
 import json
+from functools import cached_property
 
 from django import forms
 from django.contrib.admin.utils import (
@@ -18,7 +19,6 @@ from django.db.models.fields.related import (
 from django.forms.utils import flatatt
 from django.template.defaultfilters import capfirst, linebreaksbr
 from django.urls import NoReverseMatch, reverse
-from django.utils.functional import cached_property
 from django.utils.html import conditional_escape, format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext
@@ -456,6 +456,14 @@ class InlineAdminFormSet:
     @property
     def total_form_count(self):
         return self.formset.total_form_count
+
+    @property
+    def can_delete(self):
+        return (
+            self.formset.can_delete
+            and self.has_delete_permission
+            and bool(self.formset.initial_forms)
+        )
 
     @property
     def media(self):

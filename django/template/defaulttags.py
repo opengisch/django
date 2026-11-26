@@ -803,6 +803,10 @@ def firstof(parser, token):
     if len(bits) >= 2 and bits[-2] == "as":
         asvar = bits[-1]
         bits = bits[:-2]
+    if not bits:
+        raise TemplateSyntaxError(
+            "'firstof' statement requires at least one argument before 'as'"
+        )
     return FirstOfNode([parser.compile_filter(bit) for bit in bits], asvar)
 
 
@@ -1247,7 +1251,7 @@ def partialdef_func(parser, token):
 
     nodelist = parser.parse(valid_endpartials)
     endpartial = parser.next_token()
-    if endpartial.contents not in valid_endpartials:
+    if " ".join(endpartial.split_contents()) not in valid_endpartials:
         parser.invalid_block_tag(endpartial, "endpartialdef", valid_endpartials)
 
     pos_close = getattr(endpartial, "position", None)

@@ -42,7 +42,10 @@ class SpatialiteSchemaEditor(DatabaseSchemaEditor):
         if not isinstance(field, GeometryField):
             return super().column_sql(model, field, include_default)
 
-        # Geometry columns are created by the `AddGeometryColumn` function
+        # Geometry columns are created by the `AddGeometryColumn` function,
+        # but `db_type()` is still called to raise `ImproperlyConfigured`
+        # if needed.
+        field.db_type(self.connection)
         self.geometry_sql.append(
             self.sql_add_geometry_column
             % {

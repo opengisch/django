@@ -42,9 +42,8 @@ from django.db.models.query_utils import (
 )
 from django.db.models.sql.constants import INNER, LOUTER, ORDER_DIR, SINGLE
 from django.db.models.sql.datastructures import BaseTable, Empty, Join, MultiJoin
-from django.db.models.sql.where import AND, OR, ExtraWhere, NothingNode, WhereNode
+from django.db.models.sql.where import AND, OR, XOR, ExtraWhere, NothingNode, WhereNode
 from django.utils.deprecation import RemovedInDjango2028Warning
-from django.utils.functional import cached_property
 from django.utils.regex_helper import _lazy_re_compile
 from django.utils.tree import Node
 from django.utils.warnings import django_file_prefixes
@@ -338,7 +337,7 @@ class Query(BaseExpression):
         elif len(self.annotation_select) == 1:
             return next(iter(self.annotation_select.values())).output_field
 
-    @cached_property
+    @functools.cached_property
     def base_table(self):
         for alias in self.alias_map:
             return alias
@@ -403,6 +402,8 @@ class Query(BaseExpression):
         obj.annotations = self.annotations.copy()
         if self.annotation_select_mask is not None:
             obj.annotation_select_mask = self.annotation_select_mask.copy()
+        if self.selected is not None:
+            obj.selected = self.selected.copy()
         if self.combined_queries:
             obj.combined_queries = tuple(
                 [query.clone() for query in self.combined_queries]
@@ -2621,21 +2622,29 @@ class Query(BaseExpression):
                     if extra := self.extra_select.get(f):
                         extra_names.append(f)
                         selected[f] = RawSQL(*extra)
-                    elif f in self.annotation_select:
+                    # Check exact aliases before considering transforms like
+                    # "published__year", since an alias can contain LOOKUP_SEP.
+                    elif (alias := f) in self.annotations or (
+                        (alias := f.split(LOOKUP_SEP, 1)[0]) in self.annotations
+                    ):
+                        if alias not in self.annotation_select:
+                            if self.annotation_select:
+                                raise FieldError(
+                                    f"Cannot select the '{alias}' alias. It was "
+                                    f"excluded by a previous values() or "
+                                    f"values_list() call. Include '{alias}' in "
+                                    f"that call to select it."
+                                )
+                            else:
+                                raise FieldError(
+                                    f"Cannot select the '{alias}' alias. Use "
+                                    f"annotate() to promote it."
+                                )
+                        if f not in self.annotations:
+                            # Resolve transforms.
+                            self.annotations[f] = self.resolve_ref(f)
                         annotation_names.append(f)
                         selected[f] = f
-                    elif f in self.annotations:
-                        if self.annotation_select:
-                            raise FieldError(
-                                f"Cannot select the '{f}' alias. It was excluded "
-                                f"by a previous values() or values_list() call. "
-                                f"Include '{f}' in that call to select it."
-                            )
-                        else:
-                            raise FieldError(
-                                f"Cannot select the '{f}' alias. Use annotate() "
-                                f"to promote it."
-                            )
                     else:
                         # Call `names_to_path` to ensure a FieldError including
                         # annotations about to be masked as valid choices if
@@ -2828,13 +2837,24 @@ class JoinPromoter:
     def __init__(self, connector, num_children, negated):
         self.connector = connector
         self.negated = negated
-        if self.negated:
-            if connector == AND:
+        if connector == AND:
+            if negated:
                 self.effective_connector = OR
             else:
                 self.effective_connector = AND
-        else:
-            self.effective_connector = self.connector
+        elif connector == OR:
+            if negated:
+                self.effective_connector = AND
+            else:
+                self.effective_connector = OR
+        elif connector == XOR:
+            # Non-negated XOR follows OR's join promotion rules.
+            # Negated XOR promotes joins to LOUTER because an INNER JOIN
+            # could remove matching rows too early.
+            if negated:
+                self.effective_connector = XOR
+            else:
+                self.effective_connector = OR
         self.num_children = num_children
         # Maps of table alias to how many times it is seen as required for
         # inner and/or outer joins.
@@ -2865,6 +2885,9 @@ class JoinPromoter:
         # The effective_connector is used so that NOT (a AND b) is treated
         # similarly to (a OR b) for join promotion.
         for table, votes in self.votes.items():
+            if self.effective_connector == XOR:
+                to_promote.add(table)
+                continue
             # We must use outer joins in OR case when the join isn't contained
             # in all of the joins. Otherwise the INNER JOIN itself could remove
             # valid results. Consider the case where a model with rel_a and

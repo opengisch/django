@@ -1,5 +1,7 @@
 import json
 import pickle
+from pathlib import Path
+from unittest import skipIf
 
 from django.contrib.gis.gdal import (
     CoordTransform,
@@ -10,6 +12,8 @@ from django.contrib.gis.gdal import (
 )
 from django.contrib.gis.gdal.geometries import CircularString, CurvePolygon
 from django.contrib.gis.geos import GEOSException
+from django.contrib.gis.geos.libgeos import geos_version_tuple
+from django.core.exceptions import SuspiciousOperation
 from django.template import Context
 from django.template.engine import Engine
 from django.test import SimpleTestCase
@@ -129,6 +133,65 @@ class OGRGeomTest(SimpleTestCase, TestDataMixin):
             '{"type": "Point", "coordinates": [ 100.0, 0.0 ], "other": "<test>"}'
         )
         self.assertIsInstance(geom, OGRGeometry)
+
+    def test_json_named_crs(self):
+        """Even though obsolete, a CRS can be specified by name in GeoJSON."""
+        value = (
+            Path(__file__).parent.parent / "data" / "legacy_crs" / "named_crs.geojson"
+        ).read_text()
+        geom = OGRGeometry.from_json(value)
+        self.assertIsInstance(geom, OGRGeometry)
+
+    def test_json_null_crs(self):
+        value = json.dumps({"type": "Point", "coordinates": [0, 0], "crs": None})
+        geom = OGRGeometry.from_json(value)
+        self.assertIsNone(geom.srid)
+
+    def test_malformed_crs_values_raise_valueerror(self):
+        for value in (None, False, 0, 1.5, "Point", [], [{}]):
+            msg = "GeoJSON geometry must be an object."
+            with (
+                self.subTest(geometry=value),
+                self.assertRaisesMessage(ValueError, msg),
+            ):
+                OGRGeometry.from_json(json.dumps(value))
+
+        for crs in (False, 0, 1.5, "link", [], ["link"]):
+            payload = json.dumps({"type": "Point", "coordinates": [0, 0], "crs": crs})
+            with (
+                self.subTest(crs=crs),
+                self.assertRaisesMessage(ValueError, "GeoJSON CRS must be an object."),
+            ):
+                OGRGeometry.from_json(payload)
+
+        for name in (None, False, 0, 1.5, []):
+            crs = {"type": "name", "properties": {"name": name}}
+            payload = json.dumps({"type": "Point", "coordinates": [0, 0], "crs": crs})
+            msg = "GeoJSON CRS name must be a string."
+            with (
+                self.subTest(crs=crs),
+                self.assertRaisesMessage(ValueError, msg),
+            ):
+                OGRGeometry.from_json(payload)
+
+    def test_null_char_in_crs_value_raises_valueerror(self):
+        crs = {"type": "name", "properties": {"name": "hasnull\x00"}}
+        payload = json.dumps({"type": "Point", "coordinates": [0, 0], "crs": crs})
+        msg = "GeoJSON CRS name must not contain null characters."
+        with self.assertRaisesMessage(ValueError, msg):
+            OGRGeometry.from_json(payload)
+
+    def test_malformed_crs_value_does_not_mask_subsequent_external_crs(self):
+        payload = json.dumps(
+            {
+                "type": "Point",
+                "coordinates": [0, 0],
+                "crs": {"type": 0, "TYPE": "link"},
+            }
+        )
+        msg = "GeoJSON input specified an external CRS."
+        with self.assertRaisesMessage(SuspiciousOperation, msg):
+            OGRGeometry.from_json(payload)
 
     def test_points(self):
         "Testing Point objects."
@@ -770,6 +833,46 @@ class OGRGeomTest(SimpleTestCase, TestDataMixin):
                 "GEOMETRYCOLLECTION (POINT (40 10))",
                 "010700000001000000010100000000000000000044400000000000002440",
             ),
+            # Curved
+            (
+                "CIRCULARSTRING (1 5,6 2,7 3)",
+                "010800000003000000000000000000f03f000000000000144000000000000018400000"
+                "0000000000400000000000001c400000000000000840",
+            ),
+            (
+                "COMPOUNDCURVE ((5 3,5 13),CIRCULARSTRING (5 13,7 15,9 13),(9 13,9 3),"
+                "CIRCULARSTRING (9 3,7 1,5 3))",
+                "0109000000040000000102000000020000000000000000001440000000000000084000"
+                "000000000014400000000000002a400108000000030000000000000000001440000000"
+                "0000002a400000000000001c400000000000002e400000000000002240000000000000"
+                "2a4001020000000200000000000000000022400000000000002a400000000000002240"
+                "0000000000000840010800000003000000000000000000224000000000000008400000"
+                "000000001c40000000000000f03f00000000000014400000000000000840",
+            ),
+            (
+                "CURVEPOLYGON (CIRCULARSTRING (0 0,4 0,4 4,0 4,0 0),(1 1,3 3,3 1,1 1))",
+                "010a000000020000000108000000050000000000000000000000000000000000000000"
+                "0000000000104000000000000000000000000000001040000000000000104000000000"
+                "0000000000000000000010400000000000000000000000000000000001020000000400"
+                "0000000000000000f03f000000000000f03f0000000000000840000000000000084000"
+                "00000000000840000000000000f03f000000000000f03f000000000000f03f",
+            ),
+            (
+                "MULTICURVE ((0 0,5 5),CIRCULARSTRING (4 0,4 4,8 4))",
+                "010b000000020000000102000000020000000000000000000000000000000000000000"
+                "0000000000144000000000000014400108000000030000000000000000001040000000"
+                "0000000000000000000000104000000000000010400000000000002040000000000000"
+                "1040",
+            ),
+            (
+                "MULTISURFACE (((0 0,0 1,1 1,1 0,0 0)),((1 1,1 2,2 2,2 1,1 1)))",
+                "010c000000020000000103000000010000000500000000000000000000000000000000"
+                "0000000000000000000000000000000000f03f000000000000f03f000000000000f03f"
+                "000000000000f03f000000000000000000000000000000000000000000000000010300"
+                "00000100000005000000000000000000f03f000000000000f03f000000000000f03f00"
+                "0000000000004000000000000000400000000000000040000000000000004000000000"
+                "0000f03f000000000000f03f000000000000f03f",
+            ),
             # 3D
             (
                 "POINT (1 2 3)",
@@ -970,13 +1073,11 @@ class OGRGeomTest(SimpleTestCase, TestDataMixin):
                 self.assertIs(geom.is_measured, True)
 
     def test_has_curve(self):
-        for geom in self.geometries.curved_geoms:
-            with self.subTest(wkt=geom.wkt):
-                geom = OGRGeometry(geom.wkt)
+        for cg in self.geometries.curved_geoms:
+            with self.subTest(wkt=cg.wkt):
+                geom = OGRGeometry(cg.wkt)
                 self.assertIs(geom.has_curve, True)
-                msg = f"GEOS does not support {geom.__class__.__qualname__}."
-                with self.assertRaisesMessage(GEOSException, msg):
-                    geom.geos
+
         geom = OGRGeometry("POINT (0 1)")
         self.assertIs(geom.has_curve, False)
 
@@ -1032,15 +1133,68 @@ class OGRGeomTest(SimpleTestCase, TestDataMixin):
         geom2 = geom.get_curve_geometry()
         self.assertEqual(geom2.wkt, geom.wkt)
 
-    def test_curved_geometries(self):
+    @skipIf(
+        geos_version_tuple() >= (3, 13, 0),
+        "Curved geometries require GEOS 3.13.0+",
+    )
+    def test_curve_geometries_raises_when_access_with_older_geos(self):
         for geom in self.geometries.curved_geoms:
             with self.subTest(wkt=geom.wkt, geom_name=geom.name):
                 g = OGRGeometry(geom.wkt)
-                self.assertEqual(geom.name, g.geom_type.name)
-                self.assertEqual(geom.num, g.geom_type.num)
                 msg = f"GEOS does not support {g.__class__.__qualname__}."
                 with self.assertRaisesMessage(GEOSException, msg):
                     g.geos
+
+    @skipIf(
+        geos_version_tuple() < (3, 13, 0),
+        "Curved geometries require GEOS 3.13.0+",
+    )
+    def test_curve_geometries_geos_wkt(self):
+        for cg in self.geometries.curved_geoms:
+            with self.subTest(wkt=cg.wkt):
+                geom = OGRGeometry(cg.wkt)
+                to_wkt = cg.to_wkt or cg.wkt
+                self.assertEqual(geom.geos.wkt, to_wkt)
+
+    def test_curve_geometries(self):
+        for cg in self.geometries.curved_geoms:
+            with self.subTest(wkt=cg.wkt):
+                geom = OGRGeometry(cg.wkt)
+                self.assertIs(geom.has_curve, True)
+                self.assertEqual(geom.geom_type.name, cg.name)
+                self.assertEqual(geom.geom_type.num, cg.num)
+                self.assertEqual(geom.point_count, cg.n_p)
+                self.assertEqual(geom.geom_count, cg.n_g)
+                self.assertAlmostEqual(geom.centroid.x, cg.centroid[0])
+                self.assertAlmostEqual(geom.centroid.y, cg.centroid[1])
+                self.assertEqual(geom.is_measured, cg.is_measured)
+
+    def test_curve_geometries_coords(self):
+        for cg in self.geometries.curved_geoms:
+            with self.subTest(wkt=cg.wkt):
+                geom = OGRGeometry(cg.wkt)
+
+                if hasattr(cg, "coords"):
+                    self.assertEqual(geom.coords, cg.coords)
+                else:
+                    self.assertFalse(hasattr(geom, "coords"))
+
+    def test_curve_geometry_operations(self):
+        geom1 = OGRGeometry("CIRCULARSTRING (1 5,6 2,7 3)")
+        geom2 = OGRGeometry("LINESTRING (0 2, 5 2)")
+        self.assertIs(geom1.has_curve, True)
+        self.assertIs(geom2.has_curve, False)
+
+        intersection_p = geom1.intersection(geom2)
+        self.assertEqual(intersection_p.geom_name, "POINT")
+        self.assertAlmostEqual(intersection_p.x, 2.5, delta=0.01)
+        self.assertAlmostEqual(intersection_p.y, 2.0)
+
+    def test_compound_curve_validation(self):
+        with self.assertRaisesMessage(GDALException, "Corrupt data"):
+            OGRGeometry("COMPOUNDCURVE (POINT (1 2), LINESTRING (0 0, 1 1))")
+        with self.assertRaisesMessage(GDALException, "OGR failure"):
+            OGRGeometry("COMPOUNDCURVE (LINESTRING (0 0, 1 1), LINESTRING (2 2, 3 3))")
 
     def test_circularstring_has_linestring_features(self):
         geom = OGRGeometry("CIRCULARSTRING ZM (1 5 0 1, 6 2 0 2, 7 3 0 3)")

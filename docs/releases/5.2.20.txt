@@ -1,0 +1,18 @@
+===========================
+Django 5.2.20 release notes
+===========================
+
+*December 2, 2026*
+
+Django 5.2.20 fixes two security issues with severity "high", one security
+issue with severity "moderate", four security issues with severity "low", and
+one bug in 5.2.19.
+
+Bugfixes
+========
+
+* Fixed a regression in Django 5.2.19 where a :exc:`RecursionError` from a
+  GeoJSON value was not reraised as a
+  :exc:`~django.core.exceptions.ValidationError` by the
+  :class:`~django.contrib.gis.forms.GeometryField` form field
+  (:ticket:`37491`).

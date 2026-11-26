@@ -249,7 +249,19 @@ WKB / EWKB               ``memoryview``
 =======================  ==============
 
 For the GeoJSON format, the SRID is set based on the ``crs`` member. If ``crs``
-isn't provided, the SRID defaults to 4326.
+isn't provided, the SRID defaults to 4326. (The ``crs`` member was
+:rfc:`removed <7946#section-4>` from the GeoJSON spec, and some clients
+consider it invalid.)
+
+.. admonition:: References to external ``crs`` definitions not allowed
+
+    A ``SuspiciousOperation`` is raised before forwarding inputs to GDAL when
+    a CRS reference to an external resource is found.
+
+.. versionchanged:: 5.2.19
+
+    Raising ``SuspiciousOperation`` for external coordinate reference systems
+    was added.
 
 .. classmethod:: GEOSGeometry.from_gml(gml_string)
 
@@ -919,6 +931,91 @@ Geometry Collections
         >>> gc = GeometryCollection(Point(0, 0), MultiPoint(Point(0, 0), Point(1, 1)), poly)
         >>> gc = GeometryCollection((Point(0, 0), MultiPoint(Point(0, 0), Point(1, 1)), poly))
 
+.. _geos-curved-geometries:
+
+Curved Geometries
+=================
+
+.. versionadded:: 6.2
+
+GEOS 3.13 and later support curved geometries. Spatial algorithms (e.g.
+area, length, intersection) are not available for curved types; use
+:func:`geos_curve_conversion` to convert a curved geometry to its
+linear approximation before using it with an operation that doesn't
+support curves directly.
+
+``CircularString``
+------------------
+
+.. class:: CircularString(*args, **kwargs)
+
+    Requires GEOS >= 3.13.
+
+    A circular string is defined by sequences of three points where the
+    middle point lies on the arc. Each consecutive arc shares its start
+    point with the end of the previous arc, so points must be supplied in
+    odd-numbered groups of three or more:
+
+    .. code-block:: pycon
+
+        >>> from django.contrib.gis.geos import CircularString
+        >>> cs = CircularString((0, 0), (1, 1), (2, 0))
+
+``CompoundCurve``
+-----------------
+
+.. class:: CompoundCurve(*args, **kwargs)
+
+    Requires GEOS >= 3.13.
+
+    A compound curve is a contiguous sequence of :class:`LineString` and/or
+    :class:`CircularString` components. Adjacent components must share
+    their endpoints:
+
+    .. code-block:: pycon
+
+        >>> from django.contrib.gis.geos import CompoundCurve, LineString
+        >>> cc = CompoundCurve(
+        ...     LineString((0, 0), (1, 0)),
+        ...     CircularString((1, 0), (2, 1), (3, 0)),
+        ... )
+
+``CurvePolygon``
+----------------
+
+.. class:: CurvePolygon(*args, **kwargs)
+
+    Requires GEOS >= 3.13.
+
+    A curve polygon is instantiated like a :class:`Polygon`, except its
+    rings may also be :class:`CircularString` or :class:`CompoundCurve`
+    instances, in addition to :class:`LinearRing`:
+
+    .. code-block:: pycon
+
+        >>> from django.contrib.gis.geos import CurvePolygon
+        >>> cp = CurvePolygon(CircularString((0, 0), (1, 1), (2, 0), (1, -1), (0, 0)))
+
+``MultiCurve``
+--------------
+
+.. class:: MultiCurve(*args, **kwargs)
+
+    Requires GEOS >= 3.13.
+
+    A homogeneous collection of curves: :class:`LineString`,
+    :class:`CircularString`, or :class:`CompoundCurve` instances.
+
+``MultiSurface``
+----------------
+
+.. class:: MultiSurface(*args, **kwargs)
+
+    Requires GEOS >= 3.13.
+
+    A homogeneous collection of surfaces: :class:`Polygon` or
+    :class:`CurvePolygon` instances.
+
 .. _prepared-geometries:
 
 Prepared Geometries
@@ -1207,6 +1304,47 @@ include the SRID value (in other words, EWKB).
 
 .. rubric:: Footnotes
 .. [#fnogc] *See* `PostGIS EWKB, EWKT and Canonical Forms <https://postgis.net/docs/using_postgis_dbmanagement.html#EWKB_EWKT>`_, PostGIS documentation at Ch. 4.1.2.
+
+.. _curve-line-conversion:
+
+Curve and Line Conversion
+==========================
+
+.. versionadded:: 6.2
+
+On GEOS 3.15.0 and later, curved geometries (``CircularString``,
+``CompoundCurve``, ``CurvePolygon``, ``MultiCurve``, and ``MultiSurface``)
+can be automatically linearized for operations  that don't support curved
+geometries directly, and the resulting linear geometries can optionally be
+converted back to curves.
+
+.. function:: geos_curve_conversion(curve_to_line_params=True, line_to_curve_params=True)
+
+    A context manager that enables curve/line conversion on the current
+    thread's GEOS context for the duration of the ``with`` block, restoring
+    the previous state on exit. Requires GEOS 3.15.0 or later.
+
+    ``curve_to_line_params`` and ``line_to_curve_params`` each accept:
+
+    * ``True`` (the default) to enable the conversion with default
+      parameters.
+    * ``None`` to leave the conversion disabled.
+    * A :class:`GEOSCurveToLineParams` or :class:`GEOSLineToCurveParams`
+      instance, respectively, to enable the conversion with custom
+      tolerances.
+
+.. class:: GEOSCurveToLineParams(max_step_degrees=None, max_deviation=None)
+
+    Parameters controlling how curved geometries are linearized by
+    :func:`geos_curve_conversion`. ``max_step_degrees`` and
+    ``max_deviation`` use the GEOS library default when left unset.
+
+.. class:: GEOSLineToCurveParams(radius_tolerance=None, max_step_degrees=None, max_angle_difference_degrees=None)
+
+    Parameters controlling how linearized geometries are converted back to
+    curves by :func:`geos_curve_conversion`. ``radius_tolerance``,
+    ``max_step_degrees``, and ``max_angle_difference_degrees`` use the GEOS
+    library default when left unset.
 
 Settings
 ========

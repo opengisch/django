@@ -12,7 +12,7 @@ from .models import Article, Author, Book, City, DirectoryEntry, Event, Location
 
 
 class RelatedGeoModelTest(TestCase):
-    fixtures = ["initial"]
+    fixtures = ["relatedapp_initial"]
 
     def test02_select_related(self):
         "Testing `select_related` on geographic models (see #7126)."
@@ -21,7 +21,7 @@ class RelatedGeoModelTest(TestCase):
         # queryset can be removed.
         with ignore_warnings(
             category=RemovedInDjango2028Warning,
-            message=r"Calling select_related\(\) with no arguments is deprecated\.",
+            message="Calling select_related() with no arguments is deprecated.",
         ):
             qs2 = City.objects.order_by("id").select_related()
         qs3 = City.objects.order_by("id").select_related("location")

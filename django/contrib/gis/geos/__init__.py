@@ -9,6 +9,13 @@ from .collections import (  # NOQA
     MultiPoint,
     MultiPolygon,
 )
+from .curved import (  # NOQA
+    CircularString,
+    CompoundCurve,
+    CurvePolygon,
+    MultiCurve,
+    MultiSurface,
+)
 from .error import GEOSException  # NOQA
 from .factory import fromfile, fromstr  # NOQA
 from .geometry import GEOSGeometry, hex_regex, wkt_regex  # NOQA
@@ -17,3 +24,8 @@ from .libgeos import geos_version  # NOQA
 from .linestring import LinearRing, LineString  # NOQA
 from .point import Point  # NOQA
 from .polygon import Polygon  # NOQA
+from .prototypes.threadsafe import (  # NOQA
+    GEOSCurveToLineParams,
+    GEOSLineToCurveParams,
+    geos_curve_conversion,
+)

@@ -1,14 +1,18 @@
+import json
 import re
+from unittest import mock, skipIf
 
 from django.contrib.gis import forms
 from django.contrib.gis.forms import BaseGeometryWidget, OpenLayersWidget
 from django.contrib.gis.geos import GEOSGeometry
+from django.contrib.gis.geos.libgeos import geos_version_tuple
 from django.contrib.gis.geos.prototypes.io import MAX_GEOM_COLLECTIONS
-from django.core.exceptions import ValidationError
+from django.core.exceptions import SuspiciousOperation, ValidationError
 from django.template.defaultfilters import json_script
 from django.test import SimpleTestCase, override_settings
 from django.utils.html import escape
 
+from .data.invalid.external_crs import EXTERNAL_CRS_FIXTURES
 from .data.rasters.textrasters import JSON_RASTER
 
 
@@ -44,6 +48,73 @@ class GeometryFieldTest(SimpleTestCase):
         )
         self.assertEqual(cleaned_geom.srid, 32140)
         self.assertTrue(xform_geom.equals_exact(cleaned_geom, tol))
+
+    def test_widgets_reject_external_crs(self):
+        msg = "GeoJSON input specified an external CRS."
+        # No deserialize() on TextInput: it falls back to to_python().
+        for fld in forms.GeometryField(), forms.GeometryField(widget=forms.TextInput):
+            with (
+                self.subTest(widget=type(fld.widget).__name__),
+                self.assertRaisesMessage(SuspiciousOperation, msg),
+            ):
+                fld.clean(EXTERNAL_CRS_FIXTURES["root"])
+
+    def test_nested_external_crs_rejected(self):
+        fld = forms.GeometryField()
+        msg = "GeoJSON input specified an external CRS."
+        for name, payload in EXTERNAL_CRS_FIXTURES.items():
+            if name == "root":
+                continue
+            with (
+                self.subTest(fixture=name),
+                self.assertRaisesMessage(SuspiciousOperation, msg),
+            ):
+                fld.clean(payload)
+
+    def test_external_crs_variants_rejected(self):
+        msg = "GeoJSON input specified an external CRS."
+        external_crs = EXTERNAL_CRS_FIXTURES["root"]
+        cases = {
+            "json-escaped type": external_crs.replace(
+                "type", "\\u0074\\u0079\\u0070\\u0065"
+            ),
+            "json-escaped link": external_crs.replace(
+                "link", "\\u006c\\u0069\\u006e\\u006b"
+            ),
+            "json-escaped uppercase": external_crs.replace(
+                "link", "\\u004c\\u0049\\u004e\\u004b"
+            ),
+            "uppercase key": external_crs.replace('"type"', '"TYPE"'),
+            "uppercase value": external_crs.replace('"link"', '"LINK"'),
+            "prefix matching": external_crs.replace('"link"', '"linkSuffix"'),
+            "trailing space": external_crs.replace('"link"', '"link "'),
+            "URL type": external_crs.replace('"link"', '"url"'),
+            "NUL in key": external_crs.replace('"type"', r'"type\u0000suffix"'),
+        }
+
+        fld = forms.GeometryField()
+        for label, payload in cases.items():
+            with (
+                self.subTest(label=label),
+                self.assertRaisesMessage(SuspiciousOperation, msg),
+            ):
+                fld.clean(payload)
+
+    def test_geojson_comments(self):
+        """GDAL allows comments in JSON; GeoDjango does not."""
+        fld = forms.GeometryField()
+        payload = EXTERNAL_CRS_FIXTURES["root"].replace(
+            '"link"', '/* comment */ "link"'
+        )
+        with self.assertRaises(ValidationError):
+            fld.clean(payload)
+
+    def test_geojson_single_quotes(self):
+        """GDAL allows single quotes in JSON; GeoDjango does not."""
+        fld = forms.GeometryField()
+        payload = EXTERNAL_CRS_FIXTURES["root"].replace('"', "'")
+        with self.assertRaises(ValidationError):
+            fld.clean(payload)
 
     def test_max_geom_collections_default(self):
         """The limit has a default and reaches the widget."""
@@ -148,6 +219,25 @@ class GeometryFieldTest(SimpleTestCase):
                 self.assertRaisesMessage(ValidationError, "Invalid geometry value."),
             ):
                 fld.clean(value)
+
+    def test_geojson_deeply_nested(self):
+        payload = '{"type": "Point", "coordinates": [[[]]]}'
+        fld = forms.GeometryField()
+        with (
+            mock.patch.object(json, "loads", side_effect=RecursionError),
+            self.assertRaisesMessage(ValidationError, "Invalid geometry value."),
+        ):
+            fld.clean(payload)
+
+    def test_geojson_deeply_nested_text_input(self):
+        # Test widget without deserialize() method.
+        payload = '{"type": "Point", "coordinates": [[[]]]}'
+        fld = forms.GeometryField(widget=forms.TextInput)
+        with (
+            mock.patch.object(json, "loads", side_effect=RecursionError),
+            self.assertRaisesMessage(ValidationError, "Invalid geometry value."),
+        ):
+            fld.clean(payload)
 
     def test_to_python(self):
         """
@@ -349,6 +439,65 @@ class SpecializedFieldTest(SimpleTestCase):
             ),
         }
 
+        if geos_version_tuple() >= (3, 13, 0):
+            self.geometries.update(
+                {
+                    "circularstring": GEOSGeometry(
+                        "SRID=4326;CIRCULARSTRING (2 5,8 5,2 5)"
+                    ),
+                    "compoundcurve": GEOSGeometry(
+                        "SRID=4326;COMPOUNDCURVE (("
+                        "5 3,"
+                        "5 13),"
+                        "CIRCULARSTRING ("
+                        "5 13,"
+                        "7 15,"
+                        "9 13),"
+                        "(9 13,"
+                        "9 3),"
+                        "CIRCULARSTRING ("
+                        "9 3,"
+                        "7 1,"
+                        "5 3))"
+                    ),
+                    "curvepolygon": GEOSGeometry(
+                        "SRID=4326;CURVEPOLYGON ("
+                        "CIRCULARSTRING ("
+                        "0 0,"
+                        "4 0,"
+                        "4 4,"
+                        "0 4,"
+                        "0 0),"
+                        "(1 1,"
+                        "3 3,"
+                        "3 1,"
+                        "1 1))"
+                    ),
+                    "multicurve": GEOSGeometry(
+                        "SRID=4326;MULTICURVE ("
+                        "(-12.2 11.5, "
+                        "12.2 11.5),"
+                        "CIRCULARSTRING("
+                        "-11.5 0,"
+                        "0 11.5,"
+                        "11.5 0))"
+                    ),
+                    "multisurface": GEOSGeometry(
+                        "SRID=4326;MULTISURFACE ((("
+                        "0 0,"
+                        "0 1,"
+                        "1 1,"
+                        "1 0,"
+                        "0 0)),"
+                        "((1 1,"
+                        "1 2,"
+                        "2 2,"
+                        "2 1,"
+                        "1 1)))"
+                    ),
+                }
+            )
+
     def assertMapWidget(self, form_instance, geom_name):
         """
         Make sure the MapWidget js is passed in the form media and a MapWidget
@@ -491,6 +640,106 @@ class SpecializedFieldTest(SimpleTestCase):
         ]:
             self.assertFalse(GeometryForm(data={"g": invalid.wkt}).is_valid())
 
+    @skipIf(geos_version_tuple() < (3, 13, 0), "Curved geometries require GEOS 3.13.0+")
+    def test_circularstringfield(self):
+        class CircularStringForm(forms.Form):
+            c = forms.CircularStringField()
+
+        geom = self.geometries["circularstring"]
+        form = CircularStringForm(data={"c": geom})
+        self.assertTextarea(geom, form.as_p())
+        self.assertMapWidget(form, "CircularString")
+        self.assertIs(CircularStringForm().is_valid(), False)
+
+        for invalid in [
+            geo for key, geo in self.geometries.items() if key != "circularstring"
+        ]:
+            self.assertIs(CircularStringForm(data={"c": invalid.wkt}).is_valid(), False)
+
+    @skipIf(geos_version_tuple() < (3, 13, 0), "Curved geometries require GEOS 3.13.0+")
+    def test_compoundcurvefield(self):
+        class CompoundCurveForm(forms.Form):
+            c = forms.CompoundCurveField()
+
+        # empty form is invalid
+        self.assertIs(CompoundCurveForm().is_valid(), False)
+
+        geom = self.geometries["compoundcurve"]
+        form = CompoundCurveForm(data={"c": geom})
+        self.assertTextarea(geom, form.as_p())
+        self.assertMapWidget(form, "CompoundCurve")
+
+        # form with any other geometry type data is invalid
+        for invalid in [
+            geo for key, geo in self.geometries.items() if key != "compoundcurve"
+        ]:
+            with self.subTest(wkt=invalid.wkt):
+                form = CompoundCurveForm(data={"c": invalid.wkt})
+                self.assertIs(form.is_valid(), False)
+
+    @skipIf(geos_version_tuple() < (3, 13, 0), "Curved geometries require GEOS 3.13.0+")
+    def test_curvepolygonfield(self):
+        class CurvePolygonForm(forms.Form):
+            c = forms.CurvePolygonField()
+
+        # empty form is invalid
+        self.assertIs(CurvePolygonForm().is_valid(), False)
+
+        geom = self.geometries["curvepolygon"]
+        form = CurvePolygonForm(data={"c": geom})
+        self.assertTextarea(geom, form.as_p())
+        self.assertMapWidget(form, "CurvePolygon")
+
+        # form with any other geometry type data is invalid
+        for invalid in [
+            geo for key, geo in self.geometries.items() if key != "curvepolygon"
+        ]:
+            with self.subTest(wkt=invalid.wkt):
+                form = CurvePolygonForm(data={"c": invalid.wkt})
+                self.assertIs(form.is_valid(), False)
+
+    @skipIf(geos_version_tuple() < (3, 13, 0), "Curved geometries require GEOS 3.13.0+")
+    def test_multicurvefield(self):
+        class MultiCurveForm(forms.Form):
+            c = forms.MultiCurveField()
+
+        # empty form is invalid
+        self.assertIs(MultiCurveForm().is_valid(), False)
+
+        geom = self.geometries["multicurve"]
+        form = MultiCurveForm(data={"c": geom})
+        self.assertTextarea(geom, form.as_p())
+        self.assertMapWidget(form, "MultiCurve")
+
+        # form with any other geometry type data is invalid
+        for invalid in [
+            geo for key, geo in self.geometries.items() if key != "multicurve"
+        ]:
+            with self.subTest(wkt=invalid.wkt):
+                form = MultiCurveForm(data={"c": invalid.wkt})
+                self.assertIs(form.is_valid(), False)
+
+    @skipIf(geos_version_tuple() < (3, 13, 0), "Curved geometries require GEOS 3.13.0+")
+    def test_multisurfacefield(self):
+        class MultiSurfaceForm(forms.Form):
+            c = forms.MultiSurfaceField()
+
+        # empty form is invalid
+        self.assertIs(MultiSurfaceForm().is_valid(), False)
+
+        geom = self.geometries["multisurface"]
+        form = MultiSurfaceForm(data={"c": geom})
+        self.assertTextarea(geom, form.as_p())
+        self.assertMapWidget(form, "MultiSurface")
+
+        # form with any other geometry type data is invalid
+        for invalid in [
+            geo for key, geo in self.geometries.items() if key != "multisurface"
+        ]:
+            with self.subTest(wkt=invalid.wkt):
+                form = MultiSurfaceForm(data={"c": invalid.wkt})
+                self.assertIs(form.is_valid(), False)
+
 
 class OSMWidgetTest(SimpleTestCase):
     def setUp(self):
@@ -571,6 +820,39 @@ class GeometryWidgetTests(SimpleTestCase):
         for input in bad_inputs:
             with self.subTest(input=input):
                 self.assertIsNone(BaseGeometryWidget().deserialize(input))
+
+    def test_deserialize_logs_escaped_value(self):
+        # log_message() is fully covered by logging_tests in
+        # LogResponseRealLoggerTests.test_unicode_escape_escaping().
+        test_cases = [
+            ("line\nbreak", "line\\nbreak"),
+            ("map 🗺️", "map \\U0001f5fa\\ufe0f"),
+            ("escape\x1b[31mred\x1b[0m", "escape\\x1b[31mred\\x1b[0m"),
+        ]
+        for value, escaped_value in test_cases:
+            with (
+                self.subTest(value=value),
+                self.assertLogs("django.contrib.gis", "ERROR") as logs,
+            ):
+                self.assertIsNone(BaseGeometryWidget().deserialize(value))
+                message = logs.records[0].getMessage()
+                self.assertEqual(
+                    message,
+                    f"Error creating geometry from value '{escaped_value}' "
+                    "(String input unrecognized as WKT EWKT, and HEXEWKB.)",
+                )
+
+    def test_deserialize_logs_trimmed_value(self):
+        value = "x" * 5000
+        with self.assertLogs("django.contrib.gis", "ERROR") as logs:
+            self.assertIsNone(BaseGeometryWidget().deserialize(value))
+        self.maxDiff = None
+        self.assertEqual(
+            logs.records[0].getMessage(),
+            "Error creating geometry from value "
+            "'%s… <trimmed 904 chars out of 5000>' "
+            "(String input unrecognized as WKT EWKT, and HEXEWKB.)" % ("x" * 4096),
+        )
 
     def test_subwidgets(self):
         widget = forms.BaseGeometryWidget()
